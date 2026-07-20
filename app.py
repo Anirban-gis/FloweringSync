@@ -206,25 +206,13 @@ label, .stSelectbox label, .stNumberInput label,
 /* Selectbox dropdown box */
 .stSelectbox > div > div {
     background: #0d2a16 !important;
-    color: #f2e70f !important;
+    color: #E8FFE8 !important;
     border: 1.5px solid #2a6040 !important;
     border-radius: 8px !important;
 }
 
-.stSelectbox > div > div > div,
-.stSelectbox > div > div > div > div,
-.stSelectbox span,
-.stSelectbox p,
-[data-testid="stSelectbox"] span,
-[data-baseweb="select"] span,
-[data-baseweb="select"] div,
-[data-baseweb="select"] [data-testid="stMarkdownContainer"],
-[class*="placeholder"],
-[data-baseweb="select"] input::placeholder,
-[data-baseweb="select"] > div > div {
-    color: #FFFFFF !important;
-    font-weight: 600 !important;
-    opacity: 1 !important;
+.stSelectbox > div > div > div {
+    color: #E8FFE8 !important;
 }
 
 /* Text & number inputs */
