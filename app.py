@@ -141,7 +141,7 @@ BASE_CSS = """
     background: rgba(5, 18, 8, 0.96) !important;
     border-right: 2px solid #0DF024;
 }
-[data-testid="stSidebar"] * { color: #E8FFE8 !important; }
+[data-testid="stSidebar"] * { color: #0DF024 !important; }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    PANEL CARDS
@@ -206,20 +206,20 @@ label, .stSelectbox label, .stNumberInput label,
 /* Selectbox dropdown box */
 .stSelectbox > div > div {
     background: #0d2a16 !important;
-    color: #E8FFE8 !important;
+    color: #0DF024 !important;
     border: 1.5px solid #2a6040 !important;
     border-radius: 8px !important;
 }
 
 .stSelectbox > div > div > div {
-    color: #E8FFE8 !important;
+    color: #0DF024 !important;
 }
 
 /* Text & number inputs */
 .stTextInput > div > div > input,
 .stNumberInput > div > div > input {
     background: #0d2a16 !important;
-    color: #E8FFE8 !important;
+    color: #0DF024 !important;
     border: 1.5px solid #2a6040 !important;
     border-radius: 8px !important;
 }
