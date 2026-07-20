@@ -7,9 +7,9 @@ Replaces Tkinter GUI. All analysis logic unchanged.
 
 import os
 import io
+import base64
 import zipfile
 import tempfile
-import shutil
 import streamlit as st
 import geopandas as gpd
 
@@ -28,133 +28,295 @@ st.set_page_config(
 )
 
 # ---------------------------------------------------------------
-# CUSTOM CSS  (dark/neon theme matching original desktop app)
+# SESSION STATE
 # ---------------------------------------------------------------
-st.markdown("""
+for key, default in [
+    ("iso_gdf", None), ("sur_gdf", None),
+    ("iso_fields", []), ("sur_fields", []),
+    ("log_lines", []), ("results", None), ("stats", None),
+    ("excel_bytes", None), ("shp_zip_bytes", None),
+    ("bg_css", ""),
+]:
+    if key not in st.session_state:
+        st.session_state[key] = default
+
+# ---------------------------------------------------------------
+# BACKGROUND IMAGE  (set by sidebar uploader)
+# ---------------------------------------------------------------
+def make_bg_css(img_bytes, mime="image/jpeg"):
+    b64 = base64.b64encode(img_bytes).decode()
+    return f"""
+    .stApp {{
+        background-image: url("data:{mime};base64,{b64}") !important;
+        background-size: cover !important;
+        background-position: center !important;
+        background-attachment: fixed !important;
+    }}
+    """
+
+# ---------------------------------------------------------------
+# CUSTOM CSS
+# ---------------------------------------------------------------
+BASE_CSS = """
 <style>
-  /* ── Global background ── */
-  .stApp { background: #050b08; color: #E8FFE8; }
+/* ── Default app background (dark green) ── */
+.stApp {
+    background: #050b08;
+    color: #E8FFE8;
+}
 
-  /* ── Sidebar ── */
-  [data-testid="stSidebar"] {
-    background: #071209;
-    border-right: 1px solid #0DF024;
-  }
+/* ── Dark overlay so background image is never too bright ── */
+.stApp::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background: rgba(2, 10, 4, 0.62);
+    z-index: 0;
+    pointer-events: none;
+}
 
-  /* ── Card / section boxes ── */
-  .glass-card {
-    background: rgba(10,26,14,0.85);
-    border: 1.5px solid #0DF024;
+/* ── All main content sits above overlay ── */
+.block-container { position: relative; z-index: 1; }
+
+/* ── Sidebar ── */
+[data-testid="stSidebar"] {
+    background: rgba(5, 18, 8, 0.96) !important;
+    border-right: 2px solid #0DF024;
+}
+[data-testid="stSidebar"] * { color: #E8FFE8 !important; }
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   PANEL CARDS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.panel-card {
+    background: rgba(8, 22, 11, 0.88);
+    border: 2px solid #0DF024;
     border-radius: 14px;
-    padding: 20px 24px 18px 24px;
-    margin-bottom: 18px;
-  }
-  .section-title {
-    color: #0DF024;
-    font-size: 13px;
+    padding: 0 0 18px 0;
+    margin-bottom: 22px;
+    box-shadow: 0 0 18px rgba(13,240,36,0.12);
+}
+
+/* ── Panel header bar (the title strip) ── */
+.panel-header {
+    background: linear-gradient(90deg, #0a2e12 0%, #0d3d18 100%);
+    border-bottom: 2px solid #0DF024;
+    border-radius: 12px 12px 0 0;
+    padding: 12px 22px 10px 22px;
+    margin-bottom: 16px;
+}
+.panel-header-title {
+    color: #0DF024 !important;
+    font-size: 15px !important;
+    font-weight: 800 !important;
+    letter-spacing: 2px !important;
+    text-transform: uppercase;
+    margin: 0 !important;
+    display: block;
+    text-shadow: 0 0 8px rgba(13,240,36,0.5);
+}
+.panel-body {
+    padding: 0 22px 4px 22px;
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   SECTION LABELS (inside cards)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.section-label {
+    color: #7FD4A0;
+    font-size: 11px;
     font-weight: 700;
     letter-spacing: 1.5px;
-    margin-bottom: 10px;
-  }
+    text-transform: uppercase;
+    margin: 14px 0 4px 0;
+    border-bottom: 1px solid #1a4028;
+    padding-bottom: 4px;
+}
 
-  /* ── Buttons ── */
-  .stButton > button {
-    background: #061008;
-    color: #E8FFE8;
-    border: 1.5px solid #2a6040;
-    border-radius: 8px;
-    font-weight: 600;
-  }
-  .stButton > button:hover {
-    background: #0a2a12;
-    border-color: #0DF024;
-    color: #0DF024;
-  }
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   STREAMLIT WIDGETS — force visible text
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+label, .stSelectbox label, .stNumberInput label,
+.stTextInput label, .stCheckbox label,
+[data-testid="stWidgetLabel"] p,
+[data-testid="stWidgetLabel"] {
+    color: #B8FFB8 !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+}
 
-  /* ── Selectbox / number input ── */
-  .stSelectbox > div, .stNumberInput > div input, .stTextInput > div input {
+/* Selectbox dropdown box */
+.stSelectbox > div > div {
     background: #0d2a16 !important;
     color: #E8FFE8 !important;
+    border: 1.5px solid #2a6040 !important;
+    border-radius: 8px !important;
+}
+.stSelectbox > div > div > div {
+    color: #E8FFE8 !important;
+}
+
+/* Text & number inputs */
+.stTextInput > div > div > input,
+.stNumberInput > div > div > input {
+    background: #0d2a16 !important;
+    color: #E8FFE8 !important;
+    border: 1.5px solid #2a6040 !important;
+    border-radius: 8px !important;
+}
+
+/* Checkbox */
+.stCheckbox > label > span { color: #B8FFB8 !important; }
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   TABS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.stTabs [data-baseweb="tab-list"] {
+    background: rgba(5,18,8,0.85);
+    border-radius: 10px 10px 0 0;
+    border-bottom: 2px solid #0DF024;
+    gap: 4px;
+}
+.stTabs [data-baseweb="tab"] {
+    color: #7FD4A0 !important;
+    font-weight: 700;
+    font-size: 14px;
+    padding: 10px 28px;
+    border-radius: 8px 8px 0 0;
+}
+.stTabs [aria-selected="true"] {
+    color: #0DF024 !important;
+    background: rgba(13,240,36,0.1) !important;
+    border-bottom: 3px solid #0DF024 !important;
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   BUTTONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.stButton > button {
+    background: #061008 !important;
+    color: #E8FFE8 !important;
+    border: 1.5px solid #2a6040 !important;
+    border-radius: 8px !important;
+    font-weight: 700 !important;
+    font-size: 14px !important;
+}
+.stButton > button:hover {
+    background: #0a2a12 !important;
     border-color: #0DF024 !important;
-  }
+    color: #0DF024 !important;
+}
+[data-testid="baseButton-primary"] {
+    background: linear-gradient(90deg,#062e10,#0a4018) !important;
+    border: 2px solid #0DF024 !important;
+    color: #0DF024 !important;
+    font-size: 16px !important;
+    font-weight: 800 !important;
+    letter-spacing: 1px;
+}
 
-  /* ── Progress bar ── */
-  .stProgress > div > div { background: #0DF024; }
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   FILE UPLOADER
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+[data-testid="stFileUploader"] {
+    background: #0d2a16 !important;
+    border: 1.5px dashed #0DF024 !important;
+    border-radius: 10px !important;
+}
+[data-testid="stFileUploader"] p,
+[data-testid="stFileUploader"] span {
+    color: #7FD4A0 !important;
+}
 
-  /* ── File uploader ── */
-  [data-testid="stFileUploader"] {
-    background: #0d2a16;
-    border: 1.5px dashed #0DF024;
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   PROGRESS BAR
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.stProgress > div > div { background: #0DF024 !important; }
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   METRICS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+[data-testid="stMetric"] {
+    background: rgba(13,42,22,0.9);
+    border: 1.5px solid #0DF024;
     border-radius: 10px;
-  }
+    padding: 12px 16px;
+}
+[data-testid="stMetricLabel"] p { color: #7FD4A0 !important; font-size: 12px !important; }
+[data-testid="stMetricValue"]   { color: #0DF024 !important; font-size: 1.7rem !important; font-weight: 800 !important; }
 
-  /* ── Log box ── */
-  .log-box {
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   PAGE TITLE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.page-title {
+    font-size: 2.4rem;
+    font-weight: 900;
+    color: #FF6B35;
+    margin-bottom: 2px;
+    text-shadow: 0 0 20px rgba(255,107,53,0.4);
+}
+.page-subtitle {
+    font-size: 1.05rem;
+    color: #A0D8FF;
+    margin-bottom: 24px;
+    font-style: italic;
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   LOG BOX
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+.log-box {
     background: #071209;
     border: 1px solid #1a4028;
     border-radius: 10px;
     padding: 14px 16px;
     font-family: 'Cascadia Mono', 'Courier New', monospace;
-    font-size: 13px;
+    font-size: 12.5px;
     color: #E8FFE8;
     max-height: 380px;
     overflow-y: auto;
     white-space: pre-wrap;
-  }
-  .log-info    { color: #60C8FF; }
-  .log-success { color: #0DF024; font-weight: bold; }
-  .log-warn    { color: #FFB347; }
-  .log-error   { color: #FF4444; font-weight: bold; }
-  .log-muted   { color: #4A8A60; }
+    line-height: 1.7;
+}
+.log-info    { color: #60C8FF; }
+.log-success { color: #0DF024; font-weight: bold; }
+.log-warn    { color: #FFB347; }
+.log-error   { color: #FF4444; font-weight: bold; }
+.log-muted   { color: #4A8A60; }
 
-  /* ── Page title ── */
-  .page-title {
-    font-size: 2.3rem;
-    font-weight: 800;
-    color: #FF6B35;
-    margin-bottom: 2px;
-  }
-  .page-subtitle {
-    font-size: 1.05rem;
-    color: #A0D8FF;
-    margin-bottom: 28px;
-  }
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   DIVIDER
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+hr { border-color: #1a4028 !important; }
 
-  /* ── Metric chips ── */
-  [data-testid="stMetric"] {
-    background: #0d2a16;
-    border: 1px solid #0DF024;
-    border-radius: 10px;
-    padding: 10px 14px;
-  }
-  [data-testid="stMetricLabel"] { color: #7FD4A0; font-size: 12px; }
-  [data-testid="stMetricValue"] { color: #0DF024; font-size: 1.6rem; font-weight: 800; }
-
-  /* ── Tabs ── */
-  .stTabs [data-baseweb="tab"] { color: #7FD4A0; }
-  .stTabs [aria-selected="true"] { color: #0DF024; border-bottom-color: #0DF024; }
+/* info / success / warning boxes */
+[data-testid="stAlert"] { background: rgba(13,42,22,0.85) !important; border-radius: 10px; }
 </style>
-""", unsafe_allow_html=True)
+"""
 
+st.markdown(BASE_CSS, unsafe_allow_html=True)
+
+# Apply background image CSS if one is stored
+if st.session_state.bg_css:
+    st.markdown(f"<style>{st.session_state.bg_css}</style>", unsafe_allow_html=True)
 
 # ---------------------------------------------------------------
 # HELPERS
 # ---------------------------------------------------------------
-def save_upload_to_temp(uploaded_file, suffix=".shp"):
-    """Write an uploaded file to a temp location and return path."""
-    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
-    tmp.write(uploaded_file.read())
-    tmp.flush()
-    tmp.close()
-    return tmp.name
+def panel(title, content_fn):
+    """Render a styled panel card with a visible header bar."""
+    st.markdown(f"""
+    <div class="panel-card">
+        <div class="panel-header">
+            <span class="panel-header-title">⬡ &nbsp; {title}</span>
+        </div>
+        <div class="panel-body">
+    """, unsafe_allow_html=True)
+    content_fn()
+    st.markdown("</div></div>", unsafe_allow_html=True)
 
 
 def save_shapefile_bundle(uploaded_files, prefix):
-    """
-    A shapefile needs .shp + .dbf + .shx (and optionally .prj .cpg).
-    Save all uploaded companion files to the same temp directory and
-    return the path to the .shp file.
-    """
     tmpdir = tempfile.mkdtemp()
     shp_path = None
     for uf in uploaded_files:
@@ -167,7 +329,7 @@ def save_shapefile_bundle(uploaded_files, prefix):
 
 
 def colorize_log(message):
-    """Return HTML-colored log line."""
+    import html
     low = message.lower()
     if "error" in low:
         cls = "log-error"
@@ -179,152 +341,171 @@ def colorize_log(message):
         cls = "log-muted"
     else:
         cls = "log-info"
-    import html
     return f'<span class="{cls}">{html.escape(message)}</span>'
 
 
 def shapefile_to_zip(shp_path):
-    """Bundle all shapefile components into a ZIP and return bytes."""
     base = os.path.splitext(shp_path)[0]
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         for ext in (".shp", ".dbf", ".shx", ".prj", ".cpg"):
-            candidate = base + ext
-            if os.path.exists(candidate):
-                zf.write(candidate, os.path.basename(candidate))
+            c = base + ext
+            if os.path.exists(c):
+                zf.write(c, os.path.basename(c))
     buf.seek(0)
     return buf.read()
 
 
 # ---------------------------------------------------------------
-# SESSION STATE
-# ---------------------------------------------------------------
-for key, default in [
-    ("iso_gdf", None), ("sur_gdf", None),
-    ("iso_fields", []), ("sur_fields", []),
-    ("log_lines", []), ("results", None), ("stats", None),
-    ("excel_bytes", None), ("shp_zip_bytes", None),
-]:
-    if key not in st.session_state:
-        st.session_state[key] = default
-
-
-# ---------------------------------------------------------------
-# HEADER
+# PAGE HEADER
 # ---------------------------------------------------------------
 st.markdown('<div class="page-title">🌾 Flowering Synchronisation Analysis</div>', unsafe_allow_html=True)
-st.markdown('<div class="page-subtitle">Isolation vs. Surrounding Plot Flowering Overlap</div>', unsafe_allow_html=True)
+st.markdown('<div class="page-subtitle">Isolation vs. Surrounding Plot Flowering Overlap &nbsp;·&nbsp; Developed by Anirban Das</div>', unsafe_allow_html=True)
 
 # ---------------------------------------------------------------
-# SIDEBAR  –  Upload shapefiles
+# SIDEBAR
 # ---------------------------------------------------------------
 with st.sidebar:
-    st.markdown("### 📂 Upload Shapefiles")
-    st.caption("Upload all companion files for each shapefile (.shp .dbf .shx .prj)")
+    st.markdown("## 📂 Upload Shapefiles")
+    st.caption("Upload all companion files (.shp .dbf .shx .prj .cpg)")
 
-    st.markdown("#### Isolation Plot")
+    st.markdown("#### 🔵 Isolation Plot")
     iso_files = st.file_uploader(
-        "Isolation shapefile bundle",
-        accept_multiple_files=True,
-        key="iso_upload",
+        "iso", accept_multiple_files=True, key="iso_upload",
         label_visibility="collapsed",
     )
 
-    st.markdown("#### Surrounding Plot")
+    st.markdown("#### 🟢 Surrounding Plot")
     sur_files = st.file_uploader(
-        "Surrounding shapefile bundle",
-        accept_multiple_files=True,
-        key="sur_upload",
+        "sur", accept_multiple_files=True, key="sur_upload",
         label_visibility="collapsed",
     )
 
-    if st.button("⬆ Load Shapefiles", use_container_width=True):
+    if st.button("⬆  Load Shapefiles", use_container_width=True):
         errors = []
-        if not iso_files:
-            errors.append("No Isolation files uploaded.")
-        if not sur_files:
-            errors.append("No Surrounding files uploaded.")
-
+        if not iso_files: errors.append("No Isolation files uploaded.")
+        if not sur_files: errors.append("No Surrounding files uploaded.")
         if errors:
-            for e in errors:
-                st.error(e)
+            for e in errors: st.error(e)
         else:
             try:
                 iso_shp = save_shapefile_bundle(iso_files, "isolation")
                 if iso_shp is None:
-                    st.error("No .shp file found in Isolation upload.")
+                    st.error("No .shp in Isolation upload.")
                 else:
                     st.session_state.iso_gdf = gpd.read_file(iso_shp)
-                    cols = [c for c in st.session_state.iso_gdf.columns if c != "geometry"]
-                    st.session_state.iso_fields = cols
-                    st.session_state.log_lines.append(f"Isolation layer loaded — {len(st.session_state.iso_gdf)} records | CRS: {st.session_state.iso_gdf.crs}")
+                    st.session_state.iso_fields = [c for c in st.session_state.iso_gdf.columns if c != "geometry"]
+                    st.session_state.log_lines.append(f"Isolation loaded — {len(st.session_state.iso_gdf)} records | CRS: {st.session_state.iso_gdf.crs}")
                     st.success(f"✅ Isolation: {len(st.session_state.iso_gdf)} records")
 
                 sur_shp = save_shapefile_bundle(sur_files, "surrounding")
                 if sur_shp is None:
-                    st.error("No .shp file found in Surrounding upload.")
+                    st.error("No .shp in Surrounding upload.")
                 else:
                     st.session_state.sur_gdf = gpd.read_file(sur_shp)
-                    cols2 = [c for c in st.session_state.sur_gdf.columns if c != "geometry"]
-                    st.session_state.sur_fields = cols2
-                    st.session_state.log_lines.append(f"Surrounding layer loaded — {len(st.session_state.sur_gdf)} records | CRS: {st.session_state.sur_gdf.crs}")
+                    st.session_state.sur_fields = [c for c in st.session_state.sur_gdf.columns if c != "geometry"]
+                    st.session_state.log_lines.append(f"Surrounding loaded — {len(st.session_state.sur_gdf)} records | CRS: {st.session_state.sur_gdf.crs}")
                     st.success(f"✅ Surrounding: {len(st.session_state.sur_gdf)} records")
             except Exception as ex:
-                st.error(f"Error loading shapefiles: {ex}")
+                st.error(f"Error: {ex}")
 
     if st.session_state.iso_gdf is not None:
-        st.info(f"**Isolation** ✅ {len(st.session_state.iso_gdf)} records")
+        st.info(f"**Isolation** ✅  {len(st.session_state.iso_gdf)} records")
     if st.session_state.sur_gdf is not None:
-        st.info(f"**Surrounding** ✅ {len(st.session_state.sur_gdf)} records")
+        st.info(f"**Surrounding** ✅  {len(st.session_state.sur_gdf)} records")
 
     st.divider()
-    st.caption("Developed by Anirban Das")
+
+    # ── Background image picker ──
+    st.markdown("### 🖼 Background Image")
+    st.caption("Upload any JPG/PNG to set as the app background.")
+    bg_file = st.file_uploader("bg", type=["jpg","jpeg","png"], key="bg_upload",
+                               label_visibility="collapsed")
+    col_bg1, col_bg2 = st.columns(2)
+    with col_bg1:
+        if st.button("Apply", use_container_width=True) and bg_file:
+            mime = "image/png" if bg_file.name.lower().endswith(".png") else "image/jpeg"
+            st.session_state.bg_css = make_bg_css(bg_file.read(), mime)
+            st.rerun()
+    with col_bg2:
+        if st.button("Remove", use_container_width=True):
+            st.session_state.bg_css = ""
+            st.rerun()
+
+    st.divider()
+    st.caption("© Anirban Das — FloweringSync v3")
 
 
 # ---------------------------------------------------------------
-# MAIN CONTENT — three tabs
+# MAIN TABS
 # ---------------------------------------------------------------
-tab_setup, tab_run, tab_results = st.tabs(["⚙ Setup", "▶ Run Analysis", "📊 Results"])
+tab_setup, tab_run, tab_results = st.tabs(["⚙️  Setup & Field Mapping", "▶️  Run Analysis", "📊  Results & Download"])
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # TAB 1 – SETUP
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 with tab_setup:
-    st.markdown('<div class="glass-card"><div class="section-title">ISOLATION PLOT — FIELD MAPPING</div>', unsafe_allow_html=True)
+
+    # ── Isolation Panel ──
+    st.markdown("""
+    <div class="panel-card">
+        <div class="panel-header">
+            <span class="panel-header-title">🔵 &nbsp; ISOLATION PLOT — FIELD MAPPING</span>
+        </div>
+        <div class="panel-body">
+    """, unsafe_allow_html=True)
 
     iso_fields = st.session_state.iso_fields or ["(load shapefile first)"]
-    col1, col2 = st.columns(2)
-    with col1:
-        iso_id    = st.selectbox("Plot ID column",     iso_fields, key="iso_id")
-        iso_crop  = st.selectbox("Crop column",        iso_fields, key="iso_crop")
-    with col2:
-        iso_start = st.selectbox("Flower Start column", iso_fields, key="iso_start")
-        iso_end   = st.selectbox("Flower End column",   iso_fields, key="iso_end")
-    st.markdown("</div>", unsafe_allow_html=True)
+    c1, c2 = st.columns(2)
+    with c1:
+        st.selectbox("Plot ID column", iso_fields, key="iso_id")
+        st.selectbox("Crop column", iso_fields, key="iso_crop")
+    with c2:
+        st.selectbox("Flower Start column", iso_fields, key="iso_start")
+        st.selectbox("Flower End column", iso_fields, key="iso_end")
 
-    st.markdown('<div class="glass-card"><div class="section-title">SURROUNDING PLOT — FIELD MAPPING</div>', unsafe_allow_html=True)
+    st.markdown("</div></div>", unsafe_allow_html=True)
+
+    # ── Surrounding Panel ──
+    st.markdown("""
+    <div class="panel-card">
+        <div class="panel-header">
+            <span class="panel-header-title">🟢 &nbsp; SURROUNDING PLOT — FIELD MAPPING</span>
+        </div>
+        <div class="panel-body">
+    """, unsafe_allow_html=True)
+
     sur_fields = st.session_state.sur_fields or ["(load shapefile first)"]
-    col3, col4 = st.columns(2)
-    with col3:
-        sur_id    = st.selectbox("Plot ID column",     sur_fields, key="sur_id")
-        sur_crop  = st.selectbox("Crop column",        sur_fields, key="sur_crop")
-    with col4:
-        sur_start = st.selectbox("Flower Start column", sur_fields, key="sur_start")
-        sur_end   = st.selectbox("Flower End column",   sur_fields, key="sur_end")
-    st.markdown("</div>", unsafe_allow_html=True)
+    c3, c4 = st.columns(2)
+    with c3:
+        st.selectbox("Plot ID column", sur_fields, key="sur_id")
+        st.selectbox("Crop column", sur_fields, key="sur_crop")
+    with c4:
+        st.selectbox("Flower Start column", sur_fields, key="sur_start")
+        st.selectbox("Flower End column", sur_fields, key="sur_end")
 
-    st.markdown('<div class="glass-card"><div class="section-title">ANALYSIS SETTINGS</div>', unsafe_allow_html=True)
-    col5, col6, col7 = st.columns(3)
-    with col5:
-        crop_compare = st.text_input("Crop to compare", value="Maize", key="crop_compare")
-    with col6:
-        distance = st.number_input("Distance limit (m)", min_value=1.0, value=400.0, step=10.0, key="distance")
-    with col7:
-        dist_method = st.selectbox("Distance method", ["centroid", "edge"], key="dist_method")
+    st.markdown("</div></div>", unsafe_allow_html=True)
 
-    export_shp = st.checkbox("Also export Shapefile output", value=True, key="export_shp")
-    st.markdown("</div>", unsafe_allow_html=True)
+    # ── Analysis Settings Panel ──
+    st.markdown("""
+    <div class="panel-card">
+        <div class="panel-header">
+            <span class="panel-header-title">⚙️ &nbsp; ANALYSIS SETTINGS</span>
+        </div>
+        <div class="panel-body">
+    """, unsafe_allow_html=True)
+
+    c5, c6, c7 = st.columns(3)
+    with c5:
+        st.text_input("Crop to compare", value="Maize", key="crop_compare")
+    with c6:
+        st.number_input("Distance limit (m)", min_value=1.0, value=400.0, step=10.0, key="distance")
+    with c7:
+        st.selectbox("Distance method", ["centroid", "edge"], key="dist_method")
+
+    st.checkbox("Also export Shapefile output", value=True, key="export_shp")
+    st.markdown("</div></div>", unsafe_allow_html=True)
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -333,10 +514,18 @@ with tab_setup:
 with tab_run:
     ready = (st.session_state.iso_gdf is not None and st.session_state.sur_gdf is not None)
 
+    st.markdown("""
+    <div class="panel-card">
+        <div class="panel-header">
+            <span class="panel-header-title">▶️ &nbsp; RUN FLOWERING SYNCHRONISATION ANALYSIS</span>
+        </div>
+        <div class="panel-body">
+    """, unsafe_allow_html=True)
+
     if not ready:
-        st.warning("⬅ Upload and load both shapefiles from the sidebar first.")
+        st.warning("⬅  Upload and load both shapefiles from the sidebar first.")
     else:
-        st.success("Both shapefiles are loaded — ready to run.")
+        st.success("✅  Both shapefiles loaded — ready to run.")
 
     run_clicked = st.button(
         "▶  RUN ANALYSIS",
@@ -345,12 +534,13 @@ with tab_run:
         type="primary",
     )
 
-    progress_bar = st.progress(0)
-    status_text  = st.empty()
+    progress_bar    = st.progress(0)
+    status_text     = st.empty()
     log_placeholder = st.empty()
 
+    st.markdown("</div></div>", unsafe_allow_html=True)
+
     if run_clicked:
-        # Validate CRS
         ok, msg = check_crs(st.session_state.iso_gdf, st.session_state.sur_gdf)
         if not ok:
             st.error(f"CRS Error: {msg}")
@@ -397,11 +587,11 @@ with tab_run:
             )
 
             results, stats = engine.run()
-            st.session_state.results = results
-            st.session_state.stats   = stats
+            st.session_state.results   = results
+            st.session_state.stats     = stats
             st.session_state.log_lines = log_lines
 
-            # ── Build Excel in memory ──
+            # Excel
             with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tf:
                 excel_path = tf.name
             export_excel(results, stats, excel_path)
@@ -410,7 +600,7 @@ with tab_run:
             os.unlink(excel_path)
             log_cb("Excel exported.")
 
-            # ── Build Shapefile ZIP in memory ──
+            # Shapefile
             if st.session_state.export_shp:
                 with tempfile.TemporaryDirectory() as tmpdir:
                     shp_path = os.path.join(tmpdir, "flowering_sync.shp")
@@ -418,15 +608,13 @@ with tab_run:
                         results,
                         st.session_state.iso_gdf,
                         st.session_state.sur_gdf,
-                        iso_field_map,
-                        sur_field_map,
-                        shp_path,
+                        iso_field_map, sur_field_map, shp_path,
                     )
                     st.session_state.shp_zip_bytes = shapefile_to_zip(shp_path)
                 log_cb("Shapefile exported.")
 
             progress_bar.progress(100)
-            status_text.markdown("✅ **Analysis complete!** Go to the **Results** tab to download outputs.")
+            status_text.markdown("✅ **Analysis complete! Go to the Results tab to download.**")
 
         except Exception as ex:
             import traceback
@@ -442,70 +630,105 @@ with tab_results:
     if st.session_state.results is None:
         st.info("Run the analysis first to see results here.")
     else:
+        import pandas as pd
         stats   = st.session_state.stats
         results = st.session_state.results
 
         # ── Summary metrics ──
-        st.markdown('<div class="section-title">SUMMARY</div>', unsafe_allow_html=True)
+        st.markdown("""
+        <div class="panel-card">
+            <div class="panel-header">
+                <span class="panel-header-title">📊 &nbsp; SUMMARY</span>
+            </div>
+            <div class="panel-body">
+        """, unsafe_allow_html=True)
+
         col_a, col_b, col_c, col_d = st.columns(4)
-        col_a.metric("Total Comparisons",   stats.get("Total comparisons made", 0))
-        col_b.metric("Synchronized Pairs",  stats.get("Number of synchronized pairs", 0))
-        col_c.metric("Outside Distance",    stats.get("Number outside specified distance", 0))
-        col_d.metric("No Overlap",          stats.get("Number with no flowering overlap", 0))
+        col_a.metric("Total Comparisons",  stats.get("Total comparisons made", 0))
+        col_b.metric("Synchronized Pairs", stats.get("Number of synchronized pairs", 0))
+        col_c.metric("Outside Distance",   stats.get("Number outside specified distance", 0))
+        col_d.metric("No Overlap",         stats.get("Number with no flowering overlap", 0))
 
-        st.divider()
+        st.markdown("</div></div>", unsafe_allow_html=True)
 
-        # ── Download buttons ──
-        st.markdown('<div class="section-title">DOWNLOAD OUTPUTS</div>', unsafe_allow_html=True)
-        dl_col1, dl_col2 = st.columns(2)
-        with dl_col1:
+        # ── Downloads ──
+        st.markdown("""
+        <div class="panel-card">
+            <div class="panel-header">
+                <span class="panel-header-title">📥 &nbsp; DOWNLOAD OUTPUTS</span>
+            </div>
+            <div class="panel-body">
+        """, unsafe_allow_html=True)
+
+        dl1, dl2 = st.columns(2)
+        with dl1:
             if st.session_state.excel_bytes:
                 st.download_button(
-                    label="📥 Download Excel Report (.xlsx)",
+                    "📥  Download Excel Report (.xlsx)",
                     data=st.session_state.excel_bytes,
                     file_name="FloweringSync_Results.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     use_container_width=True,
                 )
-        with dl_col2:
+        with dl2:
             if st.session_state.shp_zip_bytes:
                 st.download_button(
-                    label="📥 Download Shapefile (.zip)",
+                    "📥  Download Shapefile (.zip)",
                     data=st.session_state.shp_zip_bytes,
                     file_name="FloweringSync_Shapefile.zip",
                     mime="application/zip",
                     use_container_width=True,
                 )
 
-        st.divider()
+        st.markdown("</div></div>", unsafe_allow_html=True)
 
-        # ── Full statistics table ──
-        import pandas as pd
-        st.markdown('<div class="section-title">FULL STATISTICS</div>', unsafe_allow_html=True)
+        # ── Statistics table ──
+        st.markdown("""
+        <div class="panel-card">
+            <div class="panel-header">
+                <span class="panel-header-title">📋 &nbsp; FULL STATISTICS</span>
+            </div>
+            <div class="panel-body">
+        """, unsafe_allow_html=True)
+
         st.dataframe(
             pd.DataFrame([{"Metric": k, "Value": v} for k, v in stats.items()]),
-            use_container_width=True,
-            hide_index=True,
+            use_container_width=True, hide_index=True,
         )
 
-        # ── Preview: Synchronized pairs only ──
-        st.divider()
-        st.markdown('<div class="section-title">SYNCHRONIZED PAIRS PREVIEW</div>', unsafe_allow_html=True)
+        st.markdown("</div></div>", unsafe_allow_html=True)
+
+        # ── Sync pairs preview ──
         df_all  = pd.DataFrame(results)
         df_sync = df_all[df_all["Remarks"] == "Crop Flowering Sync"].reset_index(drop=True)
-        st.caption(f"{len(df_sync)} synchronized pairs found")
-        st.dataframe(df_sync, use_container_width=True, hide_index=True)
 
-        # ── Processing log ──
+        st.markdown(f"""
+        <div class="panel-card">
+            <div class="panel-header">
+                <span class="panel-header-title">🌿 &nbsp; SYNCHRONIZED PAIRS — {len(df_sync)} FOUND</span>
+            </div>
+            <div class="panel-body">
+        """, unsafe_allow_html=True)
+
+        st.dataframe(df_sync, use_container_width=True, hide_index=True)
+        st.markdown("</div></div>", unsafe_allow_html=True)
+
+        # ── Log ──
         if st.session_state.log_lines:
-            st.divider()
-            st.markdown('<div class="section-title">PROCESSING LOG</div>', unsafe_allow_html=True)
+            st.markdown("""
+            <div class="panel-card">
+                <div class="panel-header">
+                    <span class="panel-header-title">🖥️ &nbsp; PROCESSING LOG</span>
+                </div>
+                <div class="panel-body">
+            """, unsafe_allow_html=True)
+
             html_log = "<br>".join(colorize_log(l) for l in st.session_state.log_lines)
             st.markdown(f'<div class="log-box">{html_log}</div>', unsafe_allow_html=True)
-            log_text = "\n".join(st.session_state.log_lines)
             st.download_button(
                 "📄 Download Log",
-                data=log_text,
+                data="\n".join(st.session_state.log_lines),
                 file_name="FloweringSync_log.txt",
                 mime="text/plain",
             )
+            st.markdown("</div></div>", unsafe_allow_html=True)
