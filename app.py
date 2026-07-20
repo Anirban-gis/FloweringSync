@@ -35,15 +35,63 @@ for key, default in [
     ("iso_fields", []), ("sur_fields", []),
     ("log_lines", []), ("results", None), ("stats", None),
     ("excel_bytes", None), ("shp_zip_bytes", None),
-    ("bg_css", ""),
 ]:
     if key not in st.session_state:
         st.session_state[key] = default
 
 # ---------------------------------------------------------------
-# BACKGROUND IMAGE  (set by sidebar uploader)
+# BACKGROUND IMAGE — saved permanently to disk
+# The image is stored as  static/bg_image.<ext>  next to app.py.
+# A small  static/bg_meta.txt  records the mime type.
+# On every page load we read it from disk → always survives refresh.
 # ---------------------------------------------------------------
+STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+os.makedirs(STATIC_DIR, exist_ok=True)
+BG_META_PATH = os.path.join(STATIC_DIR, "bg_meta.txt")
+
+
+def _find_saved_bg():
+    """Return (path, mime) of the saved background image, or (None, None)."""
+    if not os.path.exists(BG_META_PATH):
+        return None, None
+    try:
+        mime = open(BG_META_PATH).read().strip()
+        ext  = ".png" if "png" in mime else ".jpg"
+        path = os.path.join(STATIC_DIR, f"bg_image{ext}")
+        if os.path.exists(path):
+            return path, mime
+    except Exception:
+        pass
+    return None, None
+
+
+def save_bg_to_disk(img_bytes, mime):
+    """Persist the background image to disk so it survives every refresh."""
+    # Remove any old background files first
+    for ext in (".jpg", ".png"):
+        old = os.path.join(STATIC_DIR, f"bg_image{ext}")
+        if os.path.exists(old):
+            os.remove(old)
+    ext  = ".png" if "png" in mime else ".jpg"
+    path = os.path.join(STATIC_DIR, f"bg_image{ext}")
+    with open(path, "wb") as f:
+        f.write(img_bytes)
+    with open(BG_META_PATH, "w") as f:
+        f.write(mime)
+
+
+def remove_bg_from_disk():
+    """Delete the saved background image."""
+    for ext in (".jpg", ".png"):
+        p = os.path.join(STATIC_DIR, f"bg_image{ext}")
+        if os.path.exists(p):
+            os.remove(p)
+    if os.path.exists(BG_META_PATH):
+        os.remove(BG_META_PATH)
+
+
 def make_bg_css(img_bytes, mime="image/jpeg"):
+    """Build CSS that embeds the image as a base64 data-URI."""
     b64 = base64.b64encode(img_bytes).decode()
     return f"""
     .stApp {{
@@ -53,6 +101,16 @@ def make_bg_css(img_bytes, mime="image/jpeg"):
         background-attachment: fixed !important;
     }}
     """
+
+
+# Load background from disk on EVERY page run (survives refresh & redeployment)
+_bg_path, _bg_mime = _find_saved_bg()
+_bg_css = ""
+if _bg_path:
+    try:
+        _bg_css = make_bg_css(open(_bg_path, "rb").read(), _bg_mime)
+    except Exception:
+        _bg_css = ""
 
 # ---------------------------------------------------------------
 # CUSTOM CSS
@@ -296,9 +354,9 @@ hr { border-color: #1a4028 !important; }
 
 st.markdown(BASE_CSS, unsafe_allow_html=True)
 
-# Apply background image CSS if one is stored
-if st.session_state.bg_css:
-    st.markdown(f"<style>{st.session_state.bg_css}</style>", unsafe_allow_html=True)
+# Apply background image CSS loaded from disk (always present after upload)
+if _bg_css:
+    st.markdown(f"<style>{_bg_css}</style>", unsafe_allow_html=True)
 
 # ---------------------------------------------------------------
 # HELPERS
@@ -418,18 +476,27 @@ with st.sidebar:
 
     # ── Background image picker ──
     st.markdown("### 🖼 Background Image")
-    st.caption("Upload any JPG/PNG to set as the app background.")
-    bg_file = st.file_uploader("bg", type=["jpg","jpeg","png"], key="bg_upload",
+    if _bg_path:
+        st.success("✅ Background image is set")
+    else:
+        st.caption("No background image set.")
+    st.caption("Upload any JPG/PNG — stays permanently even after refresh.")
+    bg_file = st.file_uploader("bg", type=["jpg", "jpeg", "png"], key="bg_upload",
                                label_visibility="collapsed")
     col_bg1, col_bg2 = st.columns(2)
     with col_bg1:
-        if st.button("Apply", use_container_width=True) and bg_file:
-            mime = "image/png" if bg_file.name.lower().endswith(".png") else "image/jpeg"
-            st.session_state.bg_css = make_bg_css(bg_file.read(), mime)
-            st.rerun()
+        if st.button("✅ Apply", use_container_width=True):
+            if bg_file:
+                mime = "image/png" if bg_file.name.lower().endswith(".png") else "image/jpeg"
+                save_bg_to_disk(bg_file.read(), mime)
+                st.success("Background saved!")
+                st.rerun()
+            else:
+                st.warning("Upload an image first.")
     with col_bg2:
-        if st.button("Remove", use_container_width=True):
-            st.session_state.bg_css = ""
+        if st.button("🗑 Remove", use_container_width=True):
+            remove_bg_from_disk()
+            st.success("Background removed.")
             st.rerun()
 
     st.divider()
