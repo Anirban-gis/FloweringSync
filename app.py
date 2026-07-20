@@ -210,8 +210,15 @@ label, .stSelectbox label, .stNumberInput label,
     border: 1.5px solid #2a6040 !important;
     border-radius: 8px !important;
 }
-.stSelectbox > div > div > div {
-    color: #E8FFE8 !important;
+.stSelectbox > div > div > div,
+.stSelectbox > div > div > div > div,
+.stSelectbox span,
+.stSelectbox p,
+[data-testid="stSelectbox"] span,
+[data-baseweb="select"] span,
+[data-baseweb="select"] div {
+    color: #FFFFFF !important;
+    font-weight: 600 !important;
 }
 
 /* Text & number inputs */
