@@ -210,8 +210,21 @@ label, .stSelectbox label, .stNumberInput label,
     border: 1.5px solid #2a6040 !important;
     border-radius: 8px !important;
 }
-.stSelectbox > div > div > div{
-    color: #f2e70f !important;
+
+.stSelectbox > div > div > div,
+.stSelectbox > div > div > div > div,
+.stSelectbox span,
+.stSelectbox p,
+[data-testid="stSelectbox"] span,
+[data-baseweb="select"] span,
+[data-baseweb="select"] div,
+[data-baseweb="select"] [data-testid="stMarkdownContainer"],
+[class*="placeholder"],
+[data-baseweb="select"] input::placeholder,
+[data-baseweb="select"] > div > div {
+    color: #FFFFFF !important;
+    font-weight: 600 !important;
+    opacity: 1 !important;
 }
 
 /* Text & number inputs */
