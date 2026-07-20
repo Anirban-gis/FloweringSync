@@ -120,7 +120,7 @@ BASE_CSS = """
 /* ── Default app background (dark green) ── */
 .stApp {
     background: #050b08;
-    color: #E8FFE8;
+    color: #FFB347;
 }
 
 /* ── Dark overlay so background image is never too bright ── */
@@ -254,7 +254,7 @@ label, .stSelectbox label, .stNumberInput label,
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 .stButton > button {
     background: #061008 !important;
-    color: #E8FFE8 !important;
+    color: #FFB347 !important;
     border: 1.5px solid #2a6040 !important;
     border-radius: 8px !important;
     font-weight: 700 !important;
