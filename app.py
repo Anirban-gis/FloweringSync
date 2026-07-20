@@ -206,12 +206,12 @@ label, .stSelectbox label, .stNumberInput label,
 /* Selectbox dropdown box */
 .stSelectbox > div > div {
     background: #0d2a16 !important;
-    color: #E8FFE8 !important;
+    color: #f2e70f !important;
     border: 1.5px solid #2a6040 !important;
     border-radius: 8px !important;
 }
 .stSelectbox > div > div > div{
-    color: #E8FFE8 !important;
+    color: #f2e70f !important;
 }
 
 /* Text & number inputs */
