@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+*.pyo
+.env
+uploads/
+outputs/
+*.shp
+*.dbf
+*.shx
+*.prj
+*.cpg
+*.xlsx
+*.log
+.DS_Store
