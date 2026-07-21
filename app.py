@@ -40,77 +40,29 @@ for key, default in [
         st.session_state[key] = default
 
 # ---------------------------------------------------------------
-# BACKGROUND IMAGE — saved permanently to disk
-# The image is stored as  static/bg_image.<ext>  next to app.py.
-# A small  static/bg_meta.txt  records the mime type.
-# On every page load we read it from disk → always survives refresh.
+# BACKGROUND IMAGE — reads static/background.png or .jpg
+# Just place your image in the static/ folder in your repo.
+# It is embedded as base64 so it works on any host (Render etc.)
 # ---------------------------------------------------------------
 STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
-os.makedirs(STATIC_DIR, exist_ok=True)
-BG_META_PATH = os.path.join(STATIC_DIR, "bg_meta.txt")
 
-
-def _find_saved_bg():
-    """Return (path, mime) of the saved background image, or (None, None)."""
-    if not os.path.exists(BG_META_PATH):
-        return None, None
-    try:
-        mime = open(BG_META_PATH).read().strip()
-        ext  = ".png" if "png" in mime else ".jpg"
-        path = os.path.join(STATIC_DIR, f"bg_image{ext}")
+def _load_background_css():
+    """Look for static/background.png or .jpg and return CSS string."""
+    for fname, mime in [("background.png", "image/png"), ("background.jpg", "image/jpeg")]:
+        path = os.path.join(STATIC_DIR, fname)
         if os.path.exists(path):
-            return path, mime
-    except Exception:
-        pass
-    return None, None
+            b64 = base64.b64encode(open(path, "rb").read()).decode()
+            return f"""
+            .stApp {{
+                background-image: url("data:{mime};base64,{b64}") !important;
+                background-size: cover !important;
+                background-position: center !important;
+                background-attachment: fixed !important;
+            }}
+            """
+    return ""
 
-
-def save_bg_to_disk(img_bytes, mime):
-    """Persist the background image to disk so it survives every refresh."""
-    # Remove any old background files first
-    for ext in (".jpg", ".png"):
-        old = os.path.join(STATIC_DIR, f"bg_image{ext}")
-        if os.path.exists(old):
-            os.remove(old)
-    ext  = ".png" if "png" in mime else ".jpg"
-    path = os.path.join(STATIC_DIR, f"bg_image{ext}")
-    with open(path, "wb") as f:
-        f.write(img_bytes)
-    with open(BG_META_PATH, "w") as f:
-        f.write(mime)
-
-
-def remove_bg_from_disk():
-    """Delete the saved background image."""
-    for ext in (".jpg", ".png"):
-        p = os.path.join(STATIC_DIR, f"bg_image{ext}")
-        if os.path.exists(p):
-            os.remove(p)
-    if os.path.exists(BG_META_PATH):
-        os.remove(BG_META_PATH)
-
-
-def make_bg_css(img_bytes, mime="image/jpeg"):
-    """Build CSS that embeds the image as a base64 data-URI."""
-    b64 = base64.b64encode(img_bytes).decode()
-    return f"""
-    .stApp {{
-        background-image: url("data:{mime};base64,{b64}") !important;
-        background-size: cover !important;
-        background-position: center !important;
-        background-attachment: fixed !important;
-    }}
-    """
-
-
-# Load background from disk on EVERY page run (survives refresh & redeployment)
-_bg_path, _bg_mime = _find_saved_bg()
-_bg_css = ""
-if _bg_path:
-    try:
-        _bg_css = make_bg_css(open(_bg_path, "rb").read(), _bg_mime)
-    except Exception:
-        _bg_css = ""
+_bg_css = _load_background_css()
 
 # ---------------------------------------------------------------
 # CUSTOM CSS
@@ -120,7 +72,7 @@ BASE_CSS = """
 /* ── Default app background (dark green) ── */
 .stApp {
     background: #050b08;
-    color: #FFB347;
+    color: #E8FFE8;
 }
 
 /* ── Dark overlay so background image is never too bright ── */
@@ -141,7 +93,7 @@ BASE_CSS = """
     background: rgba(5, 18, 8, 0.96) !important;
     border-right: 2px solid #0DF024;
 }
-[data-testid="stSidebar"] * { color: #0DF024 !important; }
+[data-testid="stSidebar"] * { color: #E8FFE8 !important; }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    PANEL CARDS
@@ -206,20 +158,19 @@ label, .stSelectbox label, .stNumberInput label,
 /* Selectbox dropdown box */
 .stSelectbox > div > div {
     background: #0d2a16 !important;
-    color: #0DF024 !important;
+    color: #E8FFE8 !important;
     border: 1.5px solid #2a6040 !important;
     border-radius: 8px !important;
 }
-
 .stSelectbox > div > div > div {
-    color: #0DF024 !important;
+    color: #E8FFE8 !important;
 }
 
 /* Text & number inputs */
 .stTextInput > div > div > input,
 .stNumberInput > div > div > input {
     background: #0d2a16 !important;
-    color: #0DF024 !important;
+    color: #E8FFE8 !important;
     border: 1.5px solid #2a6040 !important;
     border-radius: 8px !important;
 }
@@ -254,7 +205,7 @@ label, .stSelectbox label, .stNumberInput label,
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 .stButton > button {
     background: #061008 !important;
-    color: #FFB347 !important;
+    color: #E8FFE8 !important;
     border: 1.5px solid #2a6040 !important;
     border-radius: 8px !important;
     font-weight: 700 !important;
@@ -472,33 +423,6 @@ with st.sidebar:
         st.info(f"**Isolation** ✅  {len(st.session_state.iso_gdf)} records")
     if st.session_state.sur_gdf is not None:
         st.info(f"**Surrounding** ✅  {len(st.session_state.sur_gdf)} records")
-
-    st.divider()
-
-    # ── Background image picker ──
-    st.markdown("### 🖼 Background Image")
-    if _bg_path:
-        st.success("✅ Background image is set")
-    else:
-        st.caption("No background image set.")
-    st.caption("Upload any JPG/PNG — stays permanently even after refresh.")
-    bg_file = st.file_uploader("bg", type=["jpg", "jpeg", "png"], key="bg_upload",
-                               label_visibility="collapsed")
-    col_bg1, col_bg2 = st.columns(2)
-    with col_bg1:
-        if st.button("✅ Apply", use_container_width=True):
-            if bg_file:
-                mime = "image/png" if bg_file.name.lower().endswith(".png") else "image/jpeg"
-                save_bg_to_disk(bg_file.read(), mime)
-                st.success("Background saved!")
-                st.rerun()
-            else:
-                st.warning("Upload an image first.")
-    with col_bg2:
-        if st.button("🗑 Remove", use_container_width=True):
-            remove_bg_from_disk()
-            st.success("Background removed.")
-            st.rerun()
 
     st.divider()
     st.caption("© Anirban Das — FloweringSync v3")
