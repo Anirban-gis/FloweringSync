@@ -41,11 +41,10 @@ for key, default in [
         st.session_state[key] = default
 
 # ---------------------------------------------------------------
-# BACKGROUND IMAGE — reads static/background.png or .jpg
-# Just place your image in the static/ folder in your repo.
-# It is embedded as base64 so it works on any host (Render etc.)
+# STATIC DIR — place background.png / sidebar_bg.jpg here
 # ---------------------------------------------------------------
 STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+
 
 def _load_background_css():
     """Look for static/background.png or .jpg and return CSS string."""
@@ -63,9 +62,20 @@ def _load_background_css():
             """
     return ""
 
+
 def _load_sidebar_bg_css():
-    """Look for static/sidebar_bg.png or .jpg and return CSS string."""
-    for fname, mime in [("sidebar_bg.png", "image/png"), ("sidebar_bg.jpg", "image/jpeg")]:
+    """
+    Look for static/sidebar_bg.jpg (or .png).
+    If found  → embed as base64 and apply as sidebar background image.
+    If missing → fall back to a dark-green gradient so the sidebar
+                 always looks polished even without the file.
+
+    HOW TO USE:
+        1. Create a  static/  folder next to app.py  (commit it to git).
+        2. Drop your image in as  static/sidebar_bg.jpg
+        3. Redeploy — done.  No other code change needed.
+    """
+    for fname, mime in [("sidebar_bg.jpg", "image/jpeg"), ("sidebar_bg.png", "image/png")]:
         path = os.path.join(STATIC_DIR, fname)
         if os.path.exists(path):
             b64 = base64.b64encode(open(path, "rb").read()).decode()
@@ -76,6 +86,7 @@ def _load_sidebar_bg_css():
                 background-position: center !important;
                 background-attachment: local !important;
             }}
+            /* dark overlay so text stays readable over any photo */
             [data-testid="stSidebar"]::before {{
                 content: "";
                 position: absolute;
@@ -89,9 +100,27 @@ def _load_sidebar_bg_css():
                 z-index: 1;
             }}
             """
-    return ""
 
-_bg_css = _load_background_css()
+    # ── Fallback: no image file found — use a lush dark-green gradient ──
+    return """
+    [data-testid="stSidebar"] {
+        background: linear-gradient(
+            180deg,
+            #041009 0%,
+            #0a2a14 40%,
+            #061a0c 70%,
+            #041009 100%
+        ) !important;
+        background-attachment: local !important;
+    }
+    [data-testid="stSidebar"] > div {
+        position: relative;
+        z-index: 1;
+    }
+    """
+
+
+_bg_css         = _load_background_css()
 _sidebar_bg_css = _load_sidebar_bg_css()
 
 # ---------------------------------------------------------------
@@ -118,9 +147,8 @@ BASE_CSS = """
 /* ── All main content sits above overlay ── */
 .block-container { position: relative; z-index: 1; }
 
-/* ── Sidebar ── */
+/* ── Sidebar base (overridden by _sidebar_bg_css below) ── */
 [data-testid="stSidebar"] {
-    background: rgba(5, 18, 8, 0.96) !important;
     border-right: 2px solid #0DF024;
 }
 [data-testid="stSidebar"] * { color: #E8FFE8 !important; }
@@ -336,11 +364,13 @@ hr { border-color: #1a4028 !important; }
 
 st.markdown(BASE_CSS, unsafe_allow_html=True)
 
-# Apply background image CSS loaded from disk (always present after upload)
+# Apply background image CSS (main app)
 if _bg_css:
     st.markdown(f"<style>{_bg_css}</style>", unsafe_allow_html=True)
-if _sidebar_bg_css:
-    st.markdown(f"<style>{_sidebar_bg_css}</style>", unsafe_allow_html=True)
+
+# Apply sidebar background (image if file exists, else gradient fallback)
+st.markdown(f"<style>{_sidebar_bg_css}</style>", unsafe_allow_html=True)
+
 
 # ---------------------------------------------------------------
 # HELPERS
@@ -824,7 +854,6 @@ with tab_results:
             )
             risk_counts.columns = ["Risk Level", "Count"]
 
-            # Color map for each risk level
             _risk_colors = {
                 "Safe":      "#0DF024",
                 "Low":       "#A8FF44",
