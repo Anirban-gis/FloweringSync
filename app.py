@@ -583,7 +583,7 @@ with tab_setup:
     for i in range(num_divisions):
         lo = i * band_size
         hi = (i + 1) * band_size
-        label_idx = min(i, len(risk_labels) - 1)
+        label_idx = max(len(risk_labels) - 1 - i, 0)
         band_rows.append({
             "Band": f"Band {i+1}",
             "Distance Range (m)": f"{lo:.0f} – {hi:.0f}",
