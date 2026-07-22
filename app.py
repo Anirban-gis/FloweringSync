@@ -370,7 +370,7 @@ def shapefile_to_zip(shp_path):
 # ---------------------------------------------------------------
 # PAGE HEADER
 # ---------------------------------------------------------------
-st.markdown('<div class="page-title">🌾 Flowering Synchronisation Analysis</div>', unsafe_allow_html=True)
+st.markdown('<div class="page-title">🌾 Flowering Synchronisation Analysis & Risk Calculation</div>', unsafe_allow_html=True)
 st.markdown('<div class="page-subtitle">Isolation vs. Surrounding Plot Flowering Overlap &nbsp;·&nbsp; Developed by Anirban Das</div>', unsafe_allow_html=True)
 
 # ---------------------------------------------------------------
