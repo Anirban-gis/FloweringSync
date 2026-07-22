@@ -93,8 +93,8 @@ def build_distance_bands(distance_limit, num_divisions):
     bands = []
     for i in range(num_divisions):
         upper = round((i + 1) * band_size, 4)
-        label_idx = min(num_divisions - 1 - i, len(_RISK_ORDER) - 1)
-        risk_label = _RISK_ORDER[label_idx]        # nearest band = highest label
+        label_idx = max(len(_RISK_ORDER) - 1 - i, 0)
+        risk_label = _RISK_ORDER[-(i + 1)]        # nearest band = highest label
         bands.append((upper, risk_label))
     bands.sort(key=lambda x: x[0])
     return bands
