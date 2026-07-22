@@ -63,7 +63,36 @@ def _load_background_css():
             """
     return ""
 
+def _load_sidebar_bg_css():
+    """Look for static/sidebar_bg.png or .jpg and return CSS string."""
+    for fname, mime in [("sidebar_bg.png", "image/png"), ("sidebar_bg.jpg", "image/jpeg")]:
+        path = os.path.join(STATIC_DIR, fname)
+        if os.path.exists(path):
+            b64 = base64.b64encode(open(path, "rb").read()).decode()
+            return f"""
+            [data-testid="stSidebar"] {{
+                background-image: url("data:{mime};base64,{b64}") !important;
+                background-size: cover !important;
+                background-position: center !important;
+                background-attachment: local !important;
+            }}
+            [data-testid="stSidebar"]::before {{
+                content: "";
+                position: absolute;
+                inset: 0;
+                background: rgba(2, 10, 4, 0.72);
+                z-index: 0;
+                pointer-events: none;
+            }}
+            [data-testid="stSidebar"] > div {{
+                position: relative;
+                z-index: 1;
+            }}
+            """
+    return ""
+
 _bg_css = _load_background_css()
+_sidebar_bg_css = _load_sidebar_bg_css()
 
 # ---------------------------------------------------------------
 # CUSTOM CSS
@@ -310,6 +339,8 @@ st.markdown(BASE_CSS, unsafe_allow_html=True)
 # Apply background image CSS loaded from disk (always present after upload)
 if _bg_css:
     st.markdown(f"<style>{_bg_css}</style>", unsafe_allow_html=True)
+if _sidebar_bg_css:
+    st.markdown(f"<style>{_sidebar_bg_css}</style>", unsafe_allow_html=True)
 
 # ---------------------------------------------------------------
 # HELPERS
@@ -370,7 +401,7 @@ def shapefile_to_zip(shp_path):
 # ---------------------------------------------------------------
 # PAGE HEADER
 # ---------------------------------------------------------------
-st.markdown('<div class="page-title">🌾 Flowering Synchronisation Analysis & Risk Calculation</div>', unsafe_allow_html=True)
+st.markdown('<div class="page-title">🌾 Flowering Synchronisation Analysis</div>', unsafe_allow_html=True)
 st.markdown('<div class="page-subtitle">Isolation vs. Surrounding Plot Flowering Overlap &nbsp;·&nbsp; Developed by Anirban Das</div>', unsafe_allow_html=True)
 
 # ---------------------------------------------------------------
@@ -522,7 +553,7 @@ with tab_setup:
     for i in range(num_divisions):
         lo = i * band_size
         hi = (i + 1) * band_size
-        label_idx = max(len(risk_labels) - 1 - i, 0)
+        label_idx = min(i, len(risk_labels) - 1)
         band_rows.append({
             "Band": f"Band {i+1}",
             "Distance Range (m)": f"{lo:.0f} – {hi:.0f}",
