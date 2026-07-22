@@ -35,6 +35,7 @@ for key, default in [
     ("iso_fields", []), ("sur_fields", []),
     ("log_lines", []), ("results", None), ("stats", None),
     ("excel_bytes", None), ("shp_zip_bytes", None),
+    ("risk_divisions", 3),
 ]:
     if key not in st.session_state:
         st.session_state[key] = default
@@ -496,6 +497,43 @@ with tab_setup:
     with c7:
         st.selectbox("Distance method", ["centroid", "edge"], key="dist_method")
 
+    st.markdown("---")
+    st.markdown("##### 🎯 Risk Distance Bands")
+    st.markdown(
+        "Choose how many equal divisions to split the analysis distance into for risk classification. "
+        "Each band gets a risk level from **Safe → Low → Moderate → High → Very High**."
+    )
+
+    risk_div_col, preview_col = st.columns([1, 2])
+    with risk_div_col:
+        num_divisions = st.number_input(
+            "Number of distance divisions",
+            min_value=2, max_value=10, value=st.session_state.risk_divisions, step=1,
+            key="risk_divisions",
+            help="The analysis distance limit will be divided equally into this many bands."
+        )
+
+    # Compute and preview bands dynamically
+    dist_limit = st.session_state.get("distance", 400.0)
+    band_size = dist_limit / num_divisions
+    risk_labels = ["Safe", "Low", "Moderate", "High", "Very High"]
+
+    band_rows = []
+    for i in range(num_divisions):
+        lo = i * band_size
+        hi = (i + 1) * band_size
+        label_idx = min(i, len(risk_labels) - 1)
+        band_rows.append({
+            "Band": f"Band {i+1}",
+            "Distance Range (m)": f"{lo:.0f} – {hi:.0f}",
+            "Risk Level": risk_labels[label_idx],
+        })
+
+    with preview_col:
+        import pandas as pd
+        st.caption("📋 Preview of distance bands & risk levels")
+        st.dataframe(pd.DataFrame(band_rows), use_container_width=True, hide_index=True)
+
     st.checkbox("Also export Shapefile output", value=True, key="export_shp")
     st.markdown("</div></div>", unsafe_allow_html=True)
 
@@ -574,6 +612,7 @@ with tab_run:
                 crop_compare=st.session_state.crop_compare,
                 distance_limit=st.session_state.distance,
                 distance_method=st.session_state.dist_method,
+                risk_divisions=int(st.session_state.risk_divisions),
                 progress_callback=progress_cb,
                 log_callback=log_cb,
             )
@@ -690,10 +729,64 @@ with tab_results:
 
         st.markdown("</div></div>", unsafe_allow_html=True)
 
-        # ── Sync pairs preview ──
+        # ── Risk Analysis ──
+        from analysis import build_distance_bands, _RISK_ORDER
+
         df_all  = pd.DataFrame(results)
         df_sync = df_all[df_all["Remarks"] == "Crop Flowering Sync"].reset_index(drop=True)
 
+        dist_limit   = st.session_state.get("distance", 400.0)
+        num_divs     = int(st.session_state.get("risk_divisions", 3))
+        dist_bands   = build_distance_bands(dist_limit, num_divs)
+
+        st.markdown("""
+        <div class="panel-card">
+            <div class="panel-header">
+                <span class="panel-header-title">⚠️ &nbsp; STEP 5 — RISK ANALYSIS</span>
+            </div>
+            <div class="panel-body">
+        """, unsafe_allow_html=True)
+
+        # Band configuration table
+        st.caption(f"Distance bands used (limit = {dist_limit:.0f} m, divisions = {num_divs})")
+        band_preview_rows = []
+        prev = 0.0
+        for upper, label in dist_bands:
+            band_preview_rows.append({
+                "Distance Range (m)": f"{prev:.0f} – {upper:.0f}",
+                "Distance Risk":      label,
+            })
+            prev = upper
+        st.dataframe(pd.DataFrame(band_preview_rows), use_container_width=True, hide_index=True)
+
+        st.markdown("---")
+
+        # Risk breakdown count
+        if "Final_Risk" in df_sync.columns and len(df_sync) > 0:
+            risk_counts = (
+                df_sync["Final_Risk"]
+                .value_counts()
+                .reindex(_RISK_ORDER, fill_value=0)
+                .reset_index()
+            )
+            risk_counts.columns = ["Risk Level", "Count"]
+
+            rc1, rc2 = st.columns([1, 2])
+            with rc1:
+                st.markdown("**Risk count (synchronized pairs)**")
+                st.dataframe(risk_counts, use_container_width=True, hide_index=True)
+            with rc2:
+                st.markdown("**Synchronized pairs with risk detail**")
+                risk_cols = ["Isolation_ID", "Surrounding_ID", "Distance_m",
+                             "Overlap_Days", "Overlap_%", "Overlap_Risk", "Final_Risk"]
+                available = [c for c in risk_cols if c in df_sync.columns]
+                st.dataframe(df_sync[available], use_container_width=True, hide_index=True)
+        else:
+            st.info("No synchronized pairs found — no risk data to display.")
+
+        st.markdown("</div></div>", unsafe_allow_html=True)
+
+        # ── Sync pairs preview ──
         st.markdown(f"""
         <div class="panel-card">
             <div class="panel-header">
