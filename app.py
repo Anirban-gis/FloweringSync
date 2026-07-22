@@ -522,7 +522,7 @@ with tab_setup:
     for i in range(num_divisions):
         lo = i * band_size
         hi = (i + 1) * band_size
-        label_idx = max(len(risk_labels) - 1 - i, 0)
+        label_idx = min(i, len(risk_labels) - 1)
         band_rows.append({
             "Band": f"Band {i+1}",
             "Distance Range (m)": f"{lo:.0f} – {hi:.0f}",
@@ -666,21 +666,43 @@ with tab_results:
         results = st.session_state.results
 
         # ── Summary metrics ──
-        st.markdown("""
-        <div class="panel-card">
-            <div class="panel-header">
-                <span class="panel-header-title">📊 &nbsp; SUMMARY</span>
+        _tc = stats.get("Total comparisons made", 0)
+        _sp = stats.get("Number of synchronized pairs", 0)
+        _od = stats.get("Number outside specified distance", 0)
+        _no = stats.get("Number with no flowering overlap", 0)
+
+        st.markdown(f"""
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:22px;">
+            <div style="background:rgba(8,22,11,0.92);border:2px solid #0DF024;border-radius:14px;
+                        padding:24px 20px;box-shadow:0 0 18px rgba(13,240,36,0.15);text-align:left;">
+                <div style="color:#7FD4A0;font-size:12px;font-weight:700;letter-spacing:1.5px;
+                            text-transform:uppercase;margin-bottom:10px;">Total Comparisons</div>
+                <div style="color:#0DF024;font-size:36px;font-weight:800;
+                            text-shadow:0 0 12px rgba(13,240,36,0.6);line-height:1;">{_tc}</div>
             </div>
-            <div class="panel-body">
+            <div style="background:rgba(8,22,11,0.92);border:2px solid #0DF024;border-radius:14px;
+                        padding:24px 20px;box-shadow:0 0 18px rgba(13,240,36,0.15);text-align:left;">
+                <div style="color:#7FD4A0;font-size:12px;font-weight:700;letter-spacing:1.5px;
+                            text-transform:uppercase;margin-bottom:10px;">Synchronized Pairs</div>
+                <div style="color:#0DF024;font-size:36px;font-weight:800;
+                            text-shadow:0 0 12px rgba(13,240,36,0.6);line-height:1;">{_sp}</div>
+            </div>
+            <div style="background:rgba(8,22,11,0.92);border:2px solid #0DF024;border-radius:14px;
+                        padding:24px 20px;box-shadow:0 0 18px rgba(13,240,36,0.15);text-align:left;">
+                <div style="color:#7FD4A0;font-size:12px;font-weight:700;letter-spacing:1.5px;
+                            text-transform:uppercase;margin-bottom:10px;">Outside Distance</div>
+                <div style="color:#0DF024;font-size:36px;font-weight:800;
+                            text-shadow:0 0 12px rgba(13,240,36,0.6);line-height:1;">{_od}</div>
+            </div>
+            <div style="background:rgba(8,22,11,0.92);border:2px solid #0DF024;border-radius:14px;
+                        padding:24px 20px;box-shadow:0 0 18px rgba(13,240,36,0.15);text-align:left;">
+                <div style="color:#7FD4A0;font-size:12px;font-weight:700;letter-spacing:1.5px;
+                            text-transform:uppercase;margin-bottom:10px;">No Overlap</div>
+                <div style="color:#0DF024;font-size:36px;font-weight:800;
+                            text-shadow:0 0 12px rgba(13,240,36,0.6);line-height:1;">{_no}</div>
+            </div>
+        </div>
         """, unsafe_allow_html=True)
-
-        col_a, col_b, col_c, col_d = st.columns(4)
-        col_a.metric("Total Comparisons",  stats.get("Total comparisons made", 0))
-        col_b.metric("Synchronized Pairs", stats.get("Number of synchronized pairs", 0))
-        col_c.metric("Outside Distance",   stats.get("Number outside specified distance", 0))
-        col_d.metric("No Overlap",         stats.get("Number with no flowering overlap", 0))
-
-        st.markdown("</div></div>", unsafe_allow_html=True)
 
         # ── Downloads ──
         st.markdown("""
@@ -771,16 +793,36 @@ with tab_results:
             )
             risk_counts.columns = ["Risk Level", "Count"]
 
-            rc1, rc2 = st.columns([1, 2])
-            with rc1:
-                st.markdown("**Risk count (synchronized pairs)**")
-                st.dataframe(risk_counts, use_container_width=True, hide_index=True)
-            with rc2:
-                st.markdown("**Synchronized pairs with risk detail**")
-                risk_cols = ["Isolation_ID", "Surrounding_ID", "Distance_m",
-                             "Overlap_Days", "Overlap_%", "Overlap_Risk", "Final_Risk"]
-                available = [c for c in risk_cols if c in df_sync.columns]
-                st.dataframe(df_sync[available], use_container_width=True, hide_index=True)
+            # Color map for each risk level
+            _risk_colors = {
+                "Safe":      "#0DF024",
+                "Low":       "#A8FF44",
+                "Moderate":  "#FFD700",
+                "High":      "#FF8C00",
+                "Very High": "#FF2222",
+            }
+
+            cards_html = "<div style='display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:18px;'>"
+            for _, row in risk_counts.iterrows():
+                lvl   = row["Risk Level"]
+                cnt   = row["Count"]
+                color = _risk_colors.get(lvl, "#0DF024")
+                cards_html += f"""
+                <div style="background:rgba(8,22,11,0.92);border:2px solid {color};border-radius:14px;
+                            padding:20px 16px;box-shadow:0 0 14px {color}33;text-align:left;">
+                    <div style="color:#B8FFB8;font-size:11px;font-weight:700;letter-spacing:1.5px;
+                                text-transform:uppercase;margin-bottom:8px;">{lvl}</div>
+                    <div style="color:{color};font-size:34px;font-weight:800;
+                                text-shadow:0 0 10px {color}99;line-height:1;">{cnt}</div>
+                </div>"""
+            cards_html += "</div>"
+            st.markdown(cards_html, unsafe_allow_html=True)
+
+            st.markdown("**Synchronized pairs with risk detail**")
+            risk_cols = ["Isolation_ID", "Surrounding_ID", "Distance_m",
+                         "Overlap_Days", "Overlap_%", "Overlap_Risk", "Final_Risk"]
+            available = [c for c in risk_cols if c in df_sync.columns]
+            st.dataframe(df_sync[available], use_container_width=True, hide_index=True)
         else:
             st.info("No synchronized pairs found — no risk data to display.")
 
