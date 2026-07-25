@@ -277,7 +277,7 @@ label, .stSelectbox label, .stNumberInput label,
     color: #0DF024 !important;
 }
 [data-testid="baseButton-primary"] {
-    background: linear-gradient(90deg,#062e10,#0a4018) !important;
+    background: linear-gradient(90deg,#FF6B35,#0a4018) !important;
     border: 2px solid #0DF024 !important;
     color: #0DF024 !important;
     font-size: 16px !important;
