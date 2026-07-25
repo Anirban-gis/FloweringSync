@@ -14,6 +14,7 @@ import streamlit as st
 import geopandas as gpd
 
 from analysis import FloweringSynchronisation
+from utils import DATE_FORMATS, DEFAULT_DATE_FORMAT_LABEL
 from excel_export import export_excel
 from shapefile_export import export_sync_shapefile
 from spatial import check_crs
@@ -36,6 +37,7 @@ for key, default in [
     ("log_lines", []), ("results", None), ("stats", None),
     ("excel_bytes", None), ("shp_zip_bytes", None),
     ("risk_divisions", 3),
+    ("date_format_label", None),   # None → will default to DEFAULT_DATE_FORMAT_LABEL
 ]:
     if key not in st.session_state:
         st.session_state[key] = default
@@ -598,6 +600,63 @@ with tab_setup:
     st.checkbox("Also export Shapefile output", value=True, key="export_shp")
     st.markdown("</div></div>", unsafe_allow_html=True)
 
+    # ── Date Format Panel ──
+    st.markdown("""
+    <div class="panel-card">
+        <div class="panel-header">
+            <span class="panel-header-title">📅 &nbsp; DATE FORMAT OF SHAPEFILE</span>
+        </div>
+        <div class="panel-body">
+    """, unsafe_allow_html=True)
+
+    st.markdown(
+        "Select the **exact date format** used in the Flower Start and Flower End columns "
+        "of your uploaded shapefiles. Choosing the correct format ensures dates are parsed "
+        "accurately for overlap calculations."
+    )
+
+    fmt_labels = list(DATE_FORMATS.keys())
+    default_idx = fmt_labels.index(DEFAULT_DATE_FORMAT_LABEL)
+
+    # Resolve current selection (persisted across reruns via session state)
+    current_label = st.session_state.get("date_format_label") or DEFAULT_DATE_FORMAT_LABEL
+    if current_label not in fmt_labels:
+        current_label = DEFAULT_DATE_FORMAT_LABEL
+    current_idx = fmt_labels.index(current_label)
+
+    col_fmt, col_preview = st.columns([2, 1])
+    with col_fmt:
+        chosen_label = st.selectbox(
+            "Date format in shapefile",
+            options=fmt_labels,
+            index=current_idx,
+            key="date_format_select",
+            help="Pick the format that matches how dates are stored in your .shp attribute table.",
+        )
+        st.session_state["date_format_label"] = chosen_label
+
+    with col_preview:
+        chosen_fmt = DATE_FORMATS[chosen_label]
+        import datetime as _dt
+        sample = _dt.date(2024, 7, 25)
+        st.markdown(
+            f"""
+            <div style="margin-top:28px;background:rgba(13,240,36,0.07);border:1.5px solid #0DF024;
+                        border-radius:10px;padding:14px 18px;">
+                <div style="color:#7FD4A0;font-size:11px;font-weight:700;letter-spacing:1.2px;
+                            text-transform:uppercase;margin-bottom:6px;">Preview (25 Jul 2024)</div>
+                <div style="color:#0DF024;font-size:20px;font-weight:800;
+                            font-family:'Courier New',monospace;">{sample.strftime(chosen_fmt)}</div>
+                <div style="color:#4A8A60;font-size:11px;margin-top:4px;">
+                    strptime pattern: <code style="color:#A8FF44;">{chosen_fmt}</code>
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    st.markdown("</div></div>", unsafe_allow_html=True)
+
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # TAB 2 – RUN
@@ -665,6 +724,10 @@ with tab_run:
             )
 
         try:
+            # Resolve chosen date format strptime string
+            _fmt_label = st.session_state.get("date_format_label") or DEFAULT_DATE_FORMAT_LABEL
+            _date_fmt  = DATE_FORMATS.get(_fmt_label)
+
             engine = FloweringSynchronisation(
                 iso_gdf=st.session_state.iso_gdf,
                 sur_gdf=st.session_state.sur_gdf,
@@ -674,6 +737,7 @@ with tab_run:
                 distance_limit=st.session_state.distance,
                 distance_method=st.session_state.dist_method,
                 risk_divisions=int(st.session_state.risk_divisions),
+                date_format=_date_fmt,
                 progress_callback=progress_cb,
                 log_callback=log_cb,
             )
