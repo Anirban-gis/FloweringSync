@@ -28,7 +28,7 @@ Step 5 – Overlap Percentage & Risk Classification
 ==========================================================
 """
 
-from utils import parse_date, safe_str, crops_match, format_date
+from utils import parse_date, safe_str, crops_match, format_date, DATE_FORMATS, DEFAULT_DATE_FORMAT_LABEL
 from spatial import build_spatial_index, query_nearby, compute_distance
 
 
@@ -138,6 +138,7 @@ class FloweringSynchronisation:
     distance_limit : float  – max proximity distance in metres
     distance_method : str   – 'centroid' or 'edge'
     risk_divisions : int    – how many equal bands to split distance_limit into
+    date_format : str       – strptime format string for date columns (e.g. '%d/%m/%Y')
     progress_callback : callable(percent:int, message:str) or None
     log_callback : callable(message:str) or None
     """
@@ -152,6 +153,7 @@ class FloweringSynchronisation:
         distance_limit,
         distance_method="centroid",
         risk_divisions=3,
+        date_format=None,
         progress_callback=None,
         log_callback=None,
     ):
@@ -163,6 +165,7 @@ class FloweringSynchronisation:
         self.distance_limit = float(distance_limit)
         self.distance_method = distance_method
         self.risk_divisions = max(2, int(risk_divisions))
+        self.date_format = date_format   # strptime string, e.g. '%d/%m/%Y'
         self.progress_callback = progress_callback or (lambda pct, msg: None)
         self.log_callback = log_callback or (lambda msg: None)
 
@@ -188,6 +191,7 @@ class FloweringSynchronisation:
         self._log(f"Distance limit : {self.distance_limit} m | Divisions : {self.risk_divisions}")
         band_desc = " | ".join(f"≤{ub:.0f}m={lbl}" for ub, lbl in self.distance_bands)
         self._log(f"Distance bands : {band_desc}")
+        self._log(f"Date format    : {self.date_format or 'auto-detect'}")
 
         iso_id_f    = self.iso_fields["id"]
         iso_crop_f  = self.iso_fields["crop"]
@@ -213,8 +217,8 @@ class FloweringSynchronisation:
 
             iso_id    = safe_str(iso_row.get(iso_id_f, pos)) if iso_id_f else str(pos)
             iso_crop  = safe_str(iso_row.get(iso_crop_f, ""))
-            iso_start = parse_date(iso_row.get(iso_start_f))
-            iso_end   = parse_date(iso_row.get(iso_end_f))
+            iso_start = parse_date(iso_row.get(iso_start_f), self.date_format)
+            iso_end   = parse_date(iso_row.get(iso_end_f),   self.date_format)
             iso_geom  = iso_row.geometry
 
             self._log(f"Checking Plot ID {iso_id}...")
@@ -246,8 +250,8 @@ class FloweringSynchronisation:
 
                 sur_id    = safe_str(sur_row.get(sur_id_f, spos)) if sur_id_f else str(spos)
                 sur_crop  = safe_str(sur_row.get(sur_crop_f, ""))
-                sur_start = parse_date(sur_row.get(sur_start_f))
-                sur_end   = parse_date(sur_row.get(sur_end_f))
+                sur_start = parse_date(sur_row.get(sur_start_f), self.date_format)
+                sur_end   = parse_date(sur_row.get(sur_end_f),   self.date_format)
 
                 # ── Crop check ──────────────────────────────────────────────
                 target_crop = self.crop_compare if self.crop_compare else iso_crop
