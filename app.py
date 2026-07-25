@@ -489,6 +489,29 @@ with st.sidebar:
         st.info(f"**Surrounding** ✅  {len(st.session_state.sur_gdf)} records")
 
     st.divider()
+
+    # ── Sample Data Download ──────────────────────────────────────────────────
+    st.markdown("#### 📦 Sample Data")
+    st.caption(
+        "New here? Download the sample shapefiles to try the app right away. "
+        "The ZIP contains **Isolation** and **Surrounding** folders — "
+        "upload each set separately above."
+    )
+    _sample_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Sample_Data.zip")
+    if os.path.exists(_sample_path):
+        with open(_sample_path, "rb") as _sf:
+            st.download_button(
+                label="⬇  Download Sample_Data.zip",
+                data=_sf.read(),
+                file_name="Sample_Data.zip",
+                mime="application/zip",
+                use_container_width=True,
+                help="Contains sample Isolation and Surrounding shapefiles with Maize flowering dates.",
+            )
+    else:
+        st.warning("Sample_Data.zip not found. Add it to the repo root.")
+
+    st.divider()
     st.caption("© Anirban Das — FloweringSync v3")
 
 
