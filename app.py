@@ -491,7 +491,15 @@ with st.sidebar:
     st.divider()
 
     # ── Sample Data Download ──────────────────────────────────────────────────
-    st.markdown("#### 📦 Sample Data")
+    #st.markdown("#### 📦 Sample Data")
+    st.markdown("""
+    <style>
+    [data-testid="stDownloadButton"]:has(button[kind="secondary"]#sample_download) button,
+    div[data-testid="stDownloadButton"] button {
+        color: #0DF024 !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
     st.caption(
         "New here? Download the sample shapefiles to try the app right away. "
         "The ZIP contains **Isolation** and **Surrounding** folders — "
@@ -506,6 +514,7 @@ with st.sidebar:
                 file_name="Sample_Data.zip",
                 mime="application/zip",
                 use_container_width=True,
+                key="sample_download", 
                 help="Contains sample Isolation and Surrounding shapefiles with Maize flowering dates.",
             )
     else:
