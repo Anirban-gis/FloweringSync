@@ -318,7 +318,7 @@ label, .stSelectbox label, .stNumberInput label,
 [data-testid="stFileUploader"] [class*="uploadedFile"] p,
 [data-testid="stFileUploaderFile"] small,
 [data-testid="stFileUploaderFile"] div {
-    color: #FFFFFF !important;
+    color: #0a1f0e !important;
     font-weight: 600 !important;
     text-shadow: 0 1px 3px rgba(0,0,0,0.8) !important;
 }
