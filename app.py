@@ -295,28 +295,27 @@ label, .stSelectbox label, .stNumberInput label,
 }
 [data-testid="stFileUploader"] p,
 [data-testid="stFileUploader"] span {
-    color: #000000 !important;
+    color: #7FD4A0 !important;
 }
 
-/* ── Uploaded file row pill — grey background fix ── */
+/* ── Uploaded file row pill background ── */
 [data-testid="stFileUploaderFile"] {
     background-color: #0a1f0e !important;
     border: 1px solid #0DF024 !important;
     border-radius: 8px !important;
 }
 
-/* ── Filename text on each uploaded file row ── */
+/* ── Filename text — white on dark green background ── */
+[data-testid="stFileUploaderFile"] *,
 [data-testid="stFileUploaderFile"] small,
 [data-testid="stFileUploaderFile"] span,
-[data-testid="stFileUploaderFile"] p {
-    color: #0DF024 !important;
+[data-testid="stFileUploaderFile"] p,
+[data-testid="stFileUploaderFile"] div {
+    color: #FFFFFF !important;
     font-weight: 600 !important;
 }
 
-
-
-/* Delete (×) button on uploaded files */
-[data-testid="stFileUploader"] button[kind="minimal"],
+/* ── Delete button on uploaded files ── */
 [data-testid="stFileUploader"] button {
     color: #FF6B6B !important;
     background: transparent !important;
