@@ -313,30 +313,7 @@ label, .stSelectbox label, .stNumberInput label,
     font-weight: 600 !important;
 }
 
-/* ── Uploaded file list items: ensure filename is clearly readable ── 
-[data-testid="stFileUploader"] [data-testid="stFileUploaderFile"],
-[data-testid="stFileUploader"] li,
-[data-testid="stFileUploader"] .uploadedFileName,
-[data-testid="stFileUploaderDropzoneInput"] ~ ul li,
-[data-testid="stFileUploader"] [class*="uploadedFile"] {
-    background: #0d2a16 !important;
-    border: 1px solid #0DF024 !important;
-    border-radius: 6px !important;
-}
 
-/* File name text inside uploaded items */
-[data-testid="stFileUploader"] [data-testid="stFileUploaderFile"] span,
-[data-testid="stFileUploader"] [data-testid="stFileUploaderFile"] p,
-[data-testid="stFileUploader"] li span,
-[data-testid="stFileUploader"] li p,
-[data-testid="stFileUploader"] [class*="uploadedFile"] span,
-[data-testid="stFileUploader"] [class*="uploadedFile"] p,
-[data-testid="stFileUploaderFile"] small,
-[data-testid="stFileUploaderFile"] div {
-    color: #0a1f0e !important;
-    font-weight: 600 !important;
-    text-shadow: 0 1px 3px rgba(0,0,0,0.8) !important;
-}*/
 
 /* Delete (×) button on uploaded files */
 [data-testid="stFileUploader"] button[kind="minimal"],
