@@ -298,7 +298,22 @@ label, .stSelectbox label, .stNumberInput label,
     color: #000000 !important;
 }
 
-/* ── Uploaded file list items: ensure filename is clearly readable ── */
+/* ── Uploaded file row pill — grey background fix ── */
+[data-testid="stFileUploaderFile"] {
+    background-color: #0a1f0e !important;
+    border: 1px solid #0DF024 !important;
+    border-radius: 8px !important;
+}
+
+/* ── Filename text on each uploaded file row ── */
+[data-testid="stFileUploaderFile"] small,
+[data-testid="stFileUploaderFile"] span,
+[data-testid="stFileUploaderFile"] p {
+    color: #0DF024 !important;
+    font-weight: 600 !important;
+}
+
+/* ── Uploaded file list items: ensure filename is clearly readable ── 
 [data-testid="stFileUploader"] [data-testid="stFileUploaderFile"],
 [data-testid="stFileUploader"] li,
 [data-testid="stFileUploader"] .uploadedFileName,
@@ -321,7 +336,7 @@ label, .stSelectbox label, .stNumberInput label,
     color: #0a1f0e !important;
     font-weight: 600 !important;
     text-shadow: 0 1px 3px rgba(0,0,0,0.8) !important;
-}
+}*/
 
 /* Delete (×) button on uploaded files */
 [data-testid="stFileUploader"] button[kind="minimal"],
