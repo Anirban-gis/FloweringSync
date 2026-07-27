@@ -29,6 +29,101 @@ st.set_page_config(
 )
 
 # ---------------------------------------------------------------
+# CSV-BASED LOGIN
+# Login.csv must exist in the same folder as app.py
+# It must have two columns: Username, Password
+# ---------------------------------------------------------------
+import pandas as pd
+
+LOGIN_CSV = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Login.csv")
+
+def load_credentials():
+    """Load Username/Password pairs from Login.csv."""
+    try:
+        df = pd.read_csv(LOGIN_CSV, dtype=str).fillna("")
+        # Normalise column names — strip spaces
+        df.columns = [c.strip() for c in df.columns]
+        return df
+    except FileNotFoundError:
+        return None
+
+def check_login():
+    """Show login screen and block app until correct credentials entered."""
+    if st.session_state.get("authenticated"):
+        return True
+
+    # ── Login page styling ──
+    st.markdown("""
+    <style>
+    [data-testid="stAppViewContainer"] {
+        background: #050b08 !important;
+    }
+    .login-wrapper {
+        display: flex;
+        justify-content: center;
+        margin-top: 60px;
+    }
+    .login-box {
+        width: 100%;
+        max-width: 420px;
+        background: rgba(8, 22, 11, 0.97);
+        border: 2px solid #0DF024;
+        border-radius: 16px;
+        padding: 40px 36px 36px 36px;
+        box-shadow: 0 0 40px rgba(13,240,36,0.25);
+    }
+    .login-title {
+        color: #0DF024;
+        font-size: 24px;
+        font-weight: 800;
+        letter-spacing: 2px;
+        text-align: center;
+        margin-bottom: 4px;
+        text-shadow: 0 0 12px rgba(13,240,36,0.5);
+    }
+    .login-subtitle {
+        color: #7FD4A0;
+        font-size: 13px;
+        text-align: center;
+        margin-bottom: 30px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    # Centre the login box using columns
+    _, col, _ = st.columns([1, 1.4, 1])
+    with col:
+        st.markdown('<div class="login-title">🌾 FloweringSync</div>', unsafe_allow_html=True)
+        st.markdown('<div class="login-subtitle">Enter your credentials to continue</div>', unsafe_allow_html=True)
+
+        username = st.text_input("Username", placeholder="Enter username", key="login_user")
+        password = st.text_input("Password", placeholder="Enter password", type="password", key="login_pass")
+
+        if st.button("🔐  Login", use_container_width=True, type="primary"):
+            creds = load_credentials()
+
+            if creds is None:
+                st.error("❌ Login.csv not found. Please add it to the project folder.")
+            else:
+                # Check if entered username exists and password matches exactly
+                match = creds[
+                    (creds["Username"].str.strip() == username.strip()) &
+                    (creds["Password"].str.strip() == password.strip())
+                ]
+                if not match.empty:
+                    st.session_state["authenticated"] = True
+                    st.session_state["logged_in_user"] = username.strip()
+                    st.rerun()
+                else:
+                    st.error("❌ Incorrect username or password.")
+
+    return False
+
+# ── Block entire app until logged in ──
+if not check_login():
+    st.stop()
+
+# ---------------------------------------------------------------
 # SESSION STATE
 # ---------------------------------------------------------------
 for key, default in [
@@ -548,6 +643,12 @@ with st.sidebar:
         st.warning("Sample_Data.zip not found. Add it to the repo root.")
 
     st.divider()
+    user = st.session_state.get("logged_in_user", "User")
+    st.caption(f"👤 Logged in as: **{user}**")
+    if st.button("🚪  Logout", use_container_width=True):
+        st.session_state["authenticated"] = False
+        st.session_state["logged_in_user"] = ""
+        st.rerun()
     st.caption("© Anirban Das — FloweringSync v3")
 
 
@@ -564,11 +665,9 @@ with tab_setup:
 
     # ── Isolation Panel ──
     st.markdown("""
-    <div class="panel-card">
-        <div class="panel-header">
-            <span class="panel-header-title">🔵 &nbsp; ISOLATION PLOT — FIELD MAPPING</span>
-        </div>
-        <div class="panel-body">
+    <div class="panel-header" style="border-radius:12px;margin-bottom:12px;">
+        <span class="panel-header-title">🔵 &nbsp; ISOLATION PLOT — FIELD MAPPING</span>
+    </div>
     """, unsafe_allow_html=True)
 
     iso_fields = st.session_state.iso_fields or ["(load shapefile first)"]
@@ -580,15 +679,13 @@ with tab_setup:
         st.selectbox("Flower Start column", iso_fields, key="iso_start")
         st.selectbox("Flower End column", iso_fields, key="iso_end")
 
-    st.markdown("</div></div>", unsafe_allow_html=True)
+    st.markdown("<hr style='border-color:#1a4028;margin:18px 0 22px 0;'>", unsafe_allow_html=True)
 
     # ── Surrounding Panel ──
     st.markdown("""
-    <div class="panel-card">
-        <div class="panel-header">
-            <span class="panel-header-title">🟢 &nbsp; SURROUNDING PLOT — FIELD MAPPING</span>
-        </div>
-        <div class="panel-body">
+    <div class="panel-header" style="border-radius:12px;margin-bottom:12px;">
+        <span class="panel-header-title">🟢 &nbsp; SURROUNDING PLOT — FIELD MAPPING</span>
+    </div>
     """, unsafe_allow_html=True)
 
     sur_fields = st.session_state.sur_fields or ["(load shapefile first)"]
@@ -600,15 +697,13 @@ with tab_setup:
         st.selectbox("Flower Start column", sur_fields, key="sur_start")
         st.selectbox("Flower End column", sur_fields, key="sur_end")
 
-    st.markdown("</div></div>", unsafe_allow_html=True)
+    st.markdown("<hr style='border-color:#1a4028;margin:18px 0 22px 0;'>", unsafe_allow_html=True)
 
     # ── Analysis Settings Panel ──
     st.markdown("""
-    <div class="panel-card">
-        <div class="panel-header">
-            <span class="panel-header-title">⚙️ &nbsp; ANALYSIS SETTINGS</span>
-        </div>
-        <div class="panel-body">
+    <div class="panel-header" style="border-radius:12px;margin-bottom:12px;">
+        <span class="panel-header-title">⚙️ &nbsp; ANALYSIS SETTINGS</span>
+    </div>
     """, unsafe_allow_html=True)
 
     c5, c6, c7 = st.columns(3)
@@ -657,15 +752,13 @@ with tab_setup:
         st.dataframe(pd.DataFrame(band_rows), use_container_width=True, hide_index=True)
 
     st.checkbox("Also export Shapefile output", value=True, key="export_shp")
-    st.markdown("</div></div>", unsafe_allow_html=True)
+    st.markdown("<hr style='border-color:#1a4028;margin:18px 0 22px 0;'>", unsafe_allow_html=True)
 
     # ── Date Format Panel ──
     st.markdown("""
-    <div class="panel-card">
-        <div class="panel-header">
-            <span class="panel-header-title">📅 &nbsp; DATE FORMAT OF SHAPEFILE</span>
-        </div>
-        <div class="panel-body">
+    <div class="panel-header" style="border-radius:12px;margin-bottom:12px;">
+        <span class="panel-header-title">📅 &nbsp; DATE FORMAT OF SHAPEFILE</span>
+    </div>
     """, unsafe_allow_html=True)
 
     st.markdown(
@@ -714,7 +807,7 @@ with tab_setup:
             unsafe_allow_html=True,
         )
 
-    st.markdown("</div></div>", unsafe_allow_html=True)
+    st.markdown("<hr style='border-color:#1a4028;margin:18px 0 22px 0;'>", unsafe_allow_html=True)
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -724,11 +817,9 @@ with tab_run:
     ready = (st.session_state.iso_gdf is not None and st.session_state.sur_gdf is not None)
 
     st.markdown("""
-    <div class="panel-card">
-        <div class="panel-header">
-            <span class="panel-header-title">▶️ &nbsp; RUN FLOWERING SYNCHRONISATION ANALYSIS</span>
-        </div>
-        <div class="panel-body">
+    <div class="panel-header" style="border-radius:12px;margin-bottom:12px;">
+        <span class="panel-header-title">▶️ &nbsp; RUN FLOWERING SYNCHRONISATION ANALYSIS</span>
+    </div>
     """, unsafe_allow_html=True)
 
     if not ready:
@@ -746,8 +837,6 @@ with tab_run:
     progress_bar    = st.progress(0)
     status_text     = st.empty()
     log_placeholder = st.empty()
-
-    st.markdown("</div></div>", unsafe_allow_html=True)
 
     if run_clicked:
         ok, msg = check_crs(st.session_state.iso_gdf, st.session_state.sur_gdf)
@@ -890,11 +979,9 @@ with tab_results:
 
         # ── Downloads ──
         st.markdown("""
-        <div class="panel-card">
-            <div class="panel-header">
-                <span class="panel-header-title">📥 &nbsp; DOWNLOAD OUTPUTS</span>
-            </div>
-            <div class="panel-body">
+        <div class="panel-header" style="border-radius:12px;margin-bottom:12px;">
+            <span class="panel-header-title">📥 &nbsp; DOWNLOAD OUTPUTS</span>
+        </div>
         """, unsafe_allow_html=True)
 
         dl1, dl2 = st.columns(2)
@@ -917,15 +1004,13 @@ with tab_results:
                     use_container_width=True,
                 )
 
-        st.markdown("</div></div>", unsafe_allow_html=True)
+        st.markdown("<hr style='border-color:#1a4028;margin:18px 0 22px 0;'>", unsafe_allow_html=True)
 
         # ── Statistics table ──
         st.markdown("""
-        <div class="panel-card">
-            <div class="panel-header">
-                <span class="panel-header-title">📋 &nbsp; FULL STATISTICS</span>
-            </div>
-            <div class="panel-body">
+        <div class="panel-header" style="border-radius:12px;margin-bottom:12px;">
+            <span class="panel-header-title">📋 &nbsp; FULL STATISTICS</span>
+        </div>
         """, unsafe_allow_html=True)
 
         st.dataframe(
@@ -933,7 +1018,7 @@ with tab_results:
             use_container_width=True, hide_index=True,
         )
 
-        st.markdown("</div></div>", unsafe_allow_html=True)
+        st.markdown("<hr style='border-color:#1a4028;margin:18px 0 22px 0;'>", unsafe_allow_html=True)
 
         # ── Risk Analysis ──
         from analysis import build_distance_bands, _RISK_ORDER
@@ -946,11 +1031,9 @@ with tab_results:
         dist_bands   = build_distance_bands(dist_limit, num_divs)
 
         st.markdown("""
-        <div class="panel-card">
-            <div class="panel-header">
-                <span class="panel-header-title">⚠️ &nbsp; STEP 5 — RISK ANALYSIS</span>
-            </div>
-            <div class="panel-body">
+        <div class="panel-header" style="border-radius:12px;margin-bottom:12px;">
+            <span class="panel-header-title">⚠️ &nbsp; STEP 5 — RISK ANALYSIS</span>
+        </div>
         """, unsafe_allow_html=True)
 
         # Band configuration table
@@ -1009,28 +1092,24 @@ with tab_results:
         else:
             st.info("No synchronized pairs found — no risk data to display.")
 
-        st.markdown("</div></div>", unsafe_allow_html=True)
+        st.markdown("<hr style='border-color:#1a4028;margin:18px 0 22px 0;'>", unsafe_allow_html=True)
 
         # ── Sync pairs preview ──
         st.markdown(f"""
-        <div class="panel-card">
-            <div class="panel-header">
-                <span class="panel-header-title">🌿 &nbsp; SYNCHRONIZED PAIRS — {len(df_sync)} FOUND</span>
-            </div>
-            <div class="panel-body">
+        <div class="panel-header" style="border-radius:12px;margin-bottom:12px;">
+            <span class="panel-header-title">🌿 &nbsp; SYNCHRONIZED PAIRS — {len(df_sync)} FOUND</span>
+        </div>
         """, unsafe_allow_html=True)
 
         st.dataframe(df_sync, use_container_width=True, hide_index=True)
-        st.markdown("</div></div>", unsafe_allow_html=True)
+        st.markdown("<hr style='border-color:#1a4028;margin:18px 0 22px 0;'>", unsafe_allow_html=True)
 
         # ── Log ──
         if st.session_state.log_lines:
             st.markdown("""
-            <div class="panel-card">
-                <div class="panel-header">
-                    <span class="panel-header-title">🖥️ &nbsp; PROCESSING LOG</span>
-                </div>
-                <div class="panel-body">
+            <div class="panel-header" style="border-radius:12px;margin-bottom:12px;">
+                <span class="panel-header-title">🖥️ &nbsp; PROCESSING LOG</span>
+            </div>
             """, unsafe_allow_html=True)
 
             html_log = "<br>".join(colorize_log(l) for l in st.session_state.log_lines)
@@ -1041,4 +1120,3 @@ with tab_results:
                 file_name="FloweringSync_log.txt",
                 mime="text/plain",
             )
-            st.markdown("</div></div>", unsafe_allow_html=True)
