@@ -295,7 +295,7 @@ label, .stSelectbox label, .stNumberInput label,
 }
 [data-testid="stFileUploader"] p,
 [data-testid="stFileUploader"] span {
-    color: #7FD4A0 !important;
+    color: #000000 !important;
 }
 
 /* ── Uploaded file list items: ensure filename is clearly readable ── */
