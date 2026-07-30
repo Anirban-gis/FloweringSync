@@ -53,11 +53,14 @@ def check_login():
         return True
 
     # ── Login page styling ──
-    st.markdown("""
+    _login_bg = _load_login_bg_css()
+    st.markdown(f"""
     <style>
+    {_login_bg if _login_bg else '''
     [data-testid="stAppViewContainer"] {
         background: #050b08 !important;
     }
+    '''}
     .login-wrapper {
         display: flex;
         justify-content: center;
@@ -155,6 +158,31 @@ def _load_background_css():
                 background-size: cover !important;
                 background-position: center !important;
                 background-attachment: fixed !important;
+            }}
+            """
+    return ""
+
+
+def _load_login_bg_css():
+    """Look for static/Login.png or static/Login.jpg and return CSS string for the login page background."""
+    for fname, mime in [("Login.png", "image/png"), ("Login.jpg", "image/jpeg")]:
+        path = os.path.join(STATIC_DIR, fname)
+        if os.path.exists(path):
+            b64 = base64.b64encode(open(path, "rb").read()).decode()
+            return f"""
+            [data-testid="stAppViewContainer"] {{
+                background-image: url("data:{mime};base64,{b64}") !important;
+                background-size: cover !important;
+                background-position: center !important;
+                background-attachment: fixed !important;
+            }}
+            [data-testid="stAppViewContainer"]::before {{
+                content: "";
+                position: fixed;
+                inset: 0;
+                background: rgba(2, 10, 4, 0.55);
+                z-index: 0;
+                pointer-events: none;
             }}
             """
     return ""
