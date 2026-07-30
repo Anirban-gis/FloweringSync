@@ -37,6 +37,43 @@ import pandas as pd
 
 LOGIN_CSV = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Login.csv")
 
+# ---------------------------------------------------------------
+# STATIC DIR — defined early so login background loader can use it
+# ---------------------------------------------------------------
+STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+
+
+def _load_login_bg_css():
+    """Embed static/Login.jpg (or Login.png) as a base64 background for the login page."""
+    for fname, mime in [("Login.jpg", "image/jpeg"), ("Login.png", "image/png")]:
+        path = os.path.join(STATIC_DIR, fname)
+        if os.path.exists(path):
+            b64 = base64.b64encode(open(path, "rb").read()).decode()
+            return f"""
+            [data-testid="stAppViewContainer"] {{
+                background-image: url("data:{mime};base64,{b64}") !important;
+                background-size: cover !important;
+                background-position: center !important;
+                background-attachment: fixed !important;
+            }}
+            /* dark overlay so the login box stays readable */
+            [data-testid="stAppViewContainer"]::before {{
+                content: "";
+                position: fixed;
+                inset: 0;
+                background: rgba(2, 10, 4, 0.55);
+                z-index: 0;
+                pointer-events: none;
+            }}
+            """
+    # Fallback: original solid dark background if image not found
+    return """
+    [data-testid="stAppViewContainer"] {
+        background: #050b08 !important;
+    }
+    """
+
+
 def load_credentials():
     """Load Username/Password pairs from Login.csv."""
     try:
@@ -47,23 +84,23 @@ def load_credentials():
     except FileNotFoundError:
         return None
 
+
 def check_login():
     """Show login screen and block app until correct credentials entered."""
     if st.session_state.get("authenticated"):
         return True
 
     # ── Login page styling ──
-    st.markdown("""
+    _login_bg = _load_login_bg_css()
+    st.markdown(f"""
     <style>
-    [data-testid="stAppViewContainer"] {
-        background: #050b08 !important;
-    }
-    .login-wrapper {
+    {_login_bg}
+    .login-wrapper {{
         display: flex;
         justify-content: center;
         margin-top: 60px;
-    }
-    .login-box {
+    }}
+    .login-box {{
         width: 100%;
         max-width: 420px;
         background: rgba(8, 22, 11, 0.97);
@@ -71,8 +108,8 @@ def check_login():
         border-radius: 16px;
         padding: 40px 36px 36px 36px;
         box-shadow: 0 0 40px rgba(13,240,36,0.25);
-    }
-    .login-title {
+    }}
+    .login-title {{
         color: #0DF024;
         font-size: 24px;
         font-weight: 800;
@@ -80,13 +117,13 @@ def check_login():
         text-align: center;
         margin-bottom: 4px;
         text-shadow: 0 0 12px rgba(13,240,36,0.5);
-    }
-    .login-subtitle {
+    }}
+    .login-subtitle {{
         color: #7FD4A0;
         font-size: 13px;
         text-align: center;
         margin-bottom: 30px;
-    }
+    }}
     </style>
     """, unsafe_allow_html=True)
 
@@ -136,11 +173,6 @@ for key, default in [
 ]:
     if key not in st.session_state:
         st.session_state[key] = default
-
-# ---------------------------------------------------------------
-# STATIC DIR — place background.png / sidebar_bg.jpg here
-# ---------------------------------------------------------------
-STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 
 
 def _load_background_css():
