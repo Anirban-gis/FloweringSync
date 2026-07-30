@@ -47,6 +47,37 @@ def load_credentials():
     except FileNotFoundError:
         return None
 
+# ---------------------------------------------------------------
+# STATIC DIR — needed for login background before check_login runs
+# ---------------------------------------------------------------
+STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
+
+
+def _load_login_bg_css():
+    """Look for static/Login.png or static/Login.jpg and return CSS string for the login page background."""
+    for fname, mime in [("Login.png", "image/png"), ("Login.jpg", "image/jpeg")]:
+        path = os.path.join(STATIC_DIR, fname)
+        if os.path.exists(path):
+            b64 = base64.b64encode(open(path, "rb").read()).decode()
+            return f"""
+            [data-testid="stAppViewContainer"] {{
+                background-image: url("data:{mime};base64,{b64}") !important;
+                background-size: cover !important;
+                background-position: center !important;
+                background-attachment: fixed !important;
+            }}
+            [data-testid="stAppViewContainer"]::before {{
+                content: "";
+                position: fixed;
+                inset: 0;
+                background: rgba(2, 10, 4, 0.55);
+                z-index: 0;
+                pointer-events: none;
+            }}
+            """
+    return ""
+
+
 def check_login():
     """Show login screen and block app until correct credentials entered."""
     if st.session_state.get("authenticated"):
@@ -143,7 +174,6 @@ for key, default in [
 # ---------------------------------------------------------------
 # STATIC DIR — place background.png / sidebar_bg.jpg here
 # ---------------------------------------------------------------
-STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 
 
 def _load_background_css():
@@ -158,31 +188,6 @@ def _load_background_css():
                 background-size: cover !important;
                 background-position: center !important;
                 background-attachment: fixed !important;
-            }}
-            """
-    return ""
-
-
-def _load_login_bg_css():
-    """Look for static/Login.png or static/Login.jpg and return CSS string for the login page background."""
-    for fname, mime in [("Login.png", "image/png"), ("Login.jpg", "image/jpeg")]:
-        path = os.path.join(STATIC_DIR, fname)
-        if os.path.exists(path):
-            b64 = base64.b64encode(open(path, "rb").read()).decode()
-            return f"""
-            [data-testid="stAppViewContainer"] {{
-                background-image: url("data:{mime};base64,{b64}") !important;
-                background-size: cover !important;
-                background-position: center !important;
-                background-attachment: fixed !important;
-            }}
-            [data-testid="stAppViewContainer"]::before {{
-                content: "";
-                position: fixed;
-                inset: 0;
-                background: rgba(2, 10, 4, 0.55);
-                z-index: 0;
-                pointer-events: none;
             }}
             """
     return ""
