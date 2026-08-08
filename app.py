@@ -33,9 +33,102 @@ st.set_page_config(
 # Login.csv must exist in the same folder as app.py
 # It must have two columns: Username, Password
 # ---------------------------------------------------------------
+import json
+import urllib.request
+import datetime
 import pandas as pd
 
 LOGIN_CSV = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Login.csv")
+
+# ---------------------------------------------------------------
+# GITHUB VISITOR LOG SETTINGS
+# Set these in Streamlit secrets or as environment variables:
+#   GITHUB_TOKEN  — Personal Access Token with repo write access
+#   GITHUB_REPO   — e.g. "yourusername/FloweringSync"
+#   GITHUB_LOG_FILE — path inside repo, e.g. "visitor_log.json"
+# ---------------------------------------------------------------
+GITHUB_TOKEN    = os.environ.get("GITHUB_TOKEN", "")
+GITHUB_REPO     = os.environ.get("GITHUB_REPO", "")      # "owner/repo"
+GITHUB_LOG_FILE = os.environ.get("GITHUB_LOG_FILE", "visitor_log.json")
+
+
+def _github_api(method, endpoint, payload=None):
+    """Simple GitHub REST API call. Returns parsed JSON or None on error."""
+    url = f"https://api.github.com/repos/{GITHUB_REPO}/{endpoint}"
+    data = json.dumps(payload).encode() if payload else None
+    req  = urllib.request.Request(url, data=data, method=method)
+    req.add_header("Authorization", f"token {GITHUB_TOKEN}")
+    req.add_header("Accept", "application/vnd.github+json")
+    req.add_header("Content-Type", "application/json")
+    try:
+        with urllib.request.urlopen(req, timeout=8) as r:
+            return json.loads(r.read().decode())
+    except Exception:
+        return None
+
+
+def _get_visitor_ip():
+    """Best-effort: get the visitor IP via a public API."""
+    try:
+        with urllib.request.urlopen("https://api.ipify.org?format=json", timeout=5) as r:
+            return json.loads(r.read().decode()).get("ip", "unknown")
+    except Exception:
+        return "unknown"
+
+
+def fetch_visitor_log():
+    """
+    Fetch visitor_log.json from GitHub.
+    Returns (records_list, sha_string).
+    records_list is a list of dicts: {username, datetime, ip}
+    """
+    if not GITHUB_TOKEN or not GITHUB_REPO:
+        return [], None
+    resp = _github_api("GET", f"contents/{GITHUB_LOG_FILE}")
+    if resp and "content" in resp:
+        import base64 as _b64
+        raw     = _b64.b64decode(resp["content"]).decode()
+        records = json.loads(raw) if raw.strip() else []
+        sha     = resp.get("sha")
+        return records, sha
+    # File doesn't exist yet — that's fine
+    return [], None
+
+
+def append_visitor_log(username, ip):
+    """
+    Append one entry to visitor_log.json on GitHub.
+    Creates the file if it doesn't exist.
+    """
+    if not GITHUB_TOKEN or not GITHUB_REPO:
+        return  # silently skip if not configured
+    import base64 as _b64
+
+    records, sha = fetch_visitor_log()
+    records.append({
+        "username": username,
+        "datetime": datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"),
+        "ip":       ip,
+    })
+
+    content_b64 = _b64.b64encode(json.dumps(records, indent=2).encode()).decode()
+    payload = {
+        "message": f"Visitor log: {username} at {records[-1]['datetime']}",
+        "content": content_b64,
+    }
+    if sha:
+        payload["sha"] = sha   # required for updates (not creates)
+
+    _github_api("PUT", f"contents/{GITHUB_LOG_FILE}", payload)
+
+
+def get_unique_ip_count():
+    """Return count of unique IPs recorded in visitor_log.json on GitHub."""
+    if not GITHUB_TOKEN or not GITHUB_REPO:
+        return None
+    records, _ = fetch_visitor_log()
+    ips = {r.get("ip") for r in records if r.get("ip") and r.get("ip") != "unknown"}
+    return len(ips)
 
 # ---------------------------------------------------------------
 # STATIC DIR — defined early so login background loader can use it
@@ -133,6 +226,32 @@ def check_login():
         st.markdown('<div class="login-title">🌾 FloweringSync</div>', unsafe_allow_html=True)
         st.markdown('<div class="login-subtitle">Enter your credentials to continue</div>', unsafe_allow_html=True)
 
+        # ── Unique visitor IP counter ──────────────────────────────
+        unique_ips = get_unique_ip_count()
+        if unique_ips is not None:
+            st.markdown(
+                f"""
+                <div style="
+                    background: rgba(13,240,36,0.07);
+                    border: 1.5px solid #0DF024;
+                    border-radius: 10px;
+                    padding: 10px 16px;
+                    margin-bottom: 20px;
+                    text-align: center;
+                ">
+                    <span style="color:#7FD4A0;font-size:12px;font-weight:700;
+                                 letter-spacing:1.2px;text-transform:uppercase;">
+                        🌍 Unique Visitors
+                    </span><br>
+                    <span style="color:#0DF024;font-size:32px;font-weight:900;
+                                 text-shadow:0 0 10px rgba(13,240,36,0.6);">
+                        {unique_ips}
+                    </span>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
         username = st.text_input("Username", placeholder="Enter username", key="login_user")
         password = st.text_input("Password", placeholder="Enter password", type="password", key="login_pass")
 
@@ -150,6 +269,9 @@ def check_login():
                 if not match.empty:
                     st.session_state["authenticated"] = True
                     st.session_state["logged_in_user"] = username.strip()
+                    # ── Log visitor to GitHub ──────────────────────
+                    visitor_ip = _get_visitor_ip()
+                    append_visitor_log(username.strip(), visitor_ip)
                     st.rerun()
                 else:
                     st.error("❌ Incorrect username or password.")
